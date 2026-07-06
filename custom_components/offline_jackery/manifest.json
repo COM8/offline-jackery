@@ -1,0 +1,15 @@
+{
+  "domain": "offline_jackery",
+  "name": "Offline Jackery",
+  "codeowners": [
+    "@COM8"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/COM8/offline-jackery",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/COM8/offline-jackery/issues",
+  "loggers": ["custom_components.offline_jackery"],
+  "requirements": ["cryptography>=44.0.0"],
+  "version": "0.1.0"
+}
