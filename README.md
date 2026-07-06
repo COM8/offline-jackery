@@ -42,7 +42,26 @@ store for config-entry values.
 Home Assistant refreshes the device every five seconds while it is reachable.
 If Bluetooth disconnects, the integration reconnects using exponential backoff,
 capped at 64 seconds. The standard Home Assistant entity update action can be
-used for an immediate refresh.
+used for an immediate refresh, and the **Refresh status** button bypasses
+reconnect backoff.
+
+Every scalar property returned in the main device and combined-system BLE
+snapshots is exposed as a read-only sensor or binary sensor. Nested properties
+and array members are preserved as individual entities. Known power,
+temperature, and state-of-charge fields receive native Home Assistant units and
+device classes. Each property also includes its protocol field and a concise
+description in its attributes.
+
+The currently verified writable entities are:
+
+- **Off-grid / EPS output** switch
+- **Smart-meter power following** switch
+- **Maximum grid feed-in power** number (0 to the reported device maximum, in
+  10 W increments)
+
+The grid feed-in setting is a ceiling, not an instantaneous power target. Actual
+export still depends on PV production, battery state, local load, metering, and
+firmware safety rules.
 
 Enable debug logging temporarily with:
 

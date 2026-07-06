@@ -20,7 +20,10 @@
       "bluetooth": {
         "title": "Choose the matching Bluetooth device",
         "description": "Only devices matching serial **{serial}** can be selected.\n\nOther Jackery devices found:\n{other_jackery}\n\nOther BLE devices found: {other_ble_count}. They are hidden because they cannot be selected safely.",
-        "data": {"address": "Matching device"}
+        "data": {
+          "address": "Matching device",
+          "rescan": "Scan again"
+        }
       },
       "validate": {
         "title": "Validate Bluetooth connection",

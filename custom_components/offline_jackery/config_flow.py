@@ -26,6 +26,7 @@ CONF_BLUETOOTH_KEY = "bluetooth_key"
 CONF_LOGIN_METHOD = "login_method"
 CONF_ACCOUNT = "account"
 CONF_REGION = "region"
+CONF_RESCAN = "rescan"
 CONF_SERIAL_NUMBER = "serial_number"
 CONF_SYSTEM_NAME = "system_name"
 
@@ -147,6 +148,8 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if bluetooth.async_scanner_count(self.hass, connectable=True) == 0:
             return self.async_abort(reason="no_bluetooth_adapter")
         if user_input is not None:
+            if user_input.get(CONF_RESCAN):
+                return await self.async_step_bluetooth()
             self._address = user_input[CONF_ADDRESS]
             return await self.async_step_validate()
 
@@ -179,15 +182,24 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if not matching:
             errors["base"] = "device_not_found"
         details = "\n".join(f"• {item}" for item in other_jackery[:8]) or "None"
-        return self.async_show_form(
-            step_id="bluetooth",
-            data_schema=vol.Schema(
+        schema = (
+            vol.Schema(
                 {
                     vol.Required(CONF_ADDRESS): selector.SelectSelector(
                         selector.SelectSelectorConfig(options=matching)
                     )
                 }
-            ),
+            )
+            if matching
+            else vol.Schema(
+                {
+                    vol.Required(CONF_RESCAN, default=True): selector.BooleanSelector()
+                }
+            )
+        )
+        return self.async_show_form(
+            step_id="bluetooth",
+            data_schema=schema,
             description_placeholders={
                 "serial": self._system.serial_number,
                 "other_jackery": details,
