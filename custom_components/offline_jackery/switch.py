@@ -1,67 +1,90 @@
-"""Switch platform for offline_jackery."""
+"""Verified writable Boolean SolarVault properties."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from collections.abc import Awaitable, Callable
+from typing import Any
 
-from homeassistant.components.switch import SwitchEntity, SwitchEntityDescription
+from homeassistant.components.switch import SwitchEntity
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .entity import IntegrationOfflineJackeryEntity
-
-if TYPE_CHECKING:
-    from homeassistant.core import HomeAssistant
-    from homeassistant.helpers.entity_platform import AddEntitiesCallback
-
-    from .coordinator import OfflineJackeryDataUpdateCoordinator
-    from .data import IntegrationOfflineJackeryConfigEntry
-
-ENTITY_DESCRIPTIONS = (
-    SwitchEntityDescription(
-        key="offline_jackery",
-        name="Integration Switch",
-        icon="mdi:format-quote-close",
-    ),
-)
+from .coordinator import nested_value
+from .data import OfflineJackeryConfigEntry
+from .entity import OfflineJackeryEntity
 
 
 async def async_setup_entry(
-    hass: HomeAssistant,  # noqa: ARG001 Unused function argument: `hass`
-    entry: IntegrationOfflineJackeryConfigEntry,
+    _hass: object,
+    entry: OfflineJackeryConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up the switch platform."""
+    coordinator = entry.runtime_data.coordinator
     async_add_entities(
-        IntegrationOfflineJackerySwitch(
-            coordinator=entry.runtime_data.coordinator,
-            entity_description=entity_description,
-        )
-        for entity_description in ENTITY_DESCRIPTIONS
+        [
+            OfflineJackerySwitch(
+                coordinator,
+                key="eps_output",
+                name="Off-grid / EPS output",
+                path="telemetry.swEps",
+                setter=coordinator.async_set_eps,
+            ),
+            OfflineJackerySwitch(
+                coordinator,
+                key="smart_meter_following",
+                name="Smart-meter power following",
+                path="system.isFollowMeterPw",
+                setter=coordinator.async_set_follow_meter,
+            ),
+        ]
     )
 
 
-class IntegrationOfflineJackerySwitch(IntegrationOfflineJackeryEntity, SwitchEntity):
-    """offline_jackery switch class."""
+class OfflineJackerySwitch(OfflineJackeryEntity, SwitchEntity):
+    """A Boolean field with a verified Jackery write command."""
 
     def __init__(
         self,
-        coordinator: OfflineJackeryDataUpdateCoordinator,
-        entity_description: SwitchEntityDescription,
+        coordinator: Any,
+        *,
+        key: str,
+        name: str,
+        path: str,
+        setter: Callable[[bool], Awaitable[None]],
     ) -> None:
-        """Initialize the switch class."""
         super().__init__(coordinator)
-        self.entity_description = entity_description
+        self._attr_name = name
+        self._set_unique_id(key)
+        self._path = path
+        self._setter = setter
 
     @property
-    def is_on(self) -> bool:
-        """Return true if the switch is on."""
-        return self.coordinator.data.get("title", "") == "foo"
+    def is_on(self) -> bool | None:
+        """Return the latest confirmed switch state."""
 
-    async def async_turn_on(self, **_: Any) -> None:
-        """Turn on the switch."""
-        await self.coordinator.config_entry.runtime_data.client.async_set_title("bar")
-        await self.coordinator.async_request_refresh()
+        value = nested_value(self.coordinator.data, self._path)
+        return bool(value) if isinstance(value, (bool, int)) else None
 
-    async def async_turn_off(self, **_: Any) -> None:
-        """Turn off the switch."""
-        await self.coordinator.config_entry.runtime_data.client.async_set_title("foo")
-        await self.coordinator.async_request_refresh()
+    async def async_turn_on(self, **_kwargs: Any) -> None:
+        """Enable the field and refresh device state."""
+
+        await self._setter(True)
+
+    async def async_turn_off(self, **_kwargs: Any) -> None:
+        """Disable the field and refresh device state."""
+
+        await self._setter(False)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, str]:
+        """Describe the safety-sensitive writable property."""
+
+        descriptions = {
+            "telemetry.swEps": (
+                "Controls the SolarVault Off-grid/EPS output. This can affect "
+                "attached equipment."
+            ),
+            "system.isFollowMeterPw": (
+                "Controls whether SolarVault output follows its configured smart meter."
+            ),
+        }
+        return {"protocol_field": self._path, "description": descriptions[self._path]}

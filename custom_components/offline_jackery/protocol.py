@@ -125,7 +125,10 @@ def build_command_pages(
     if message_type > 0:
         payload.setdefault("cmd", message_type)
     encoded = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode()
-    chunks = [encoded[index : index + max_body_bytes] for index in range(0, len(encoded), max_body_bytes)] or [b""]
+    chunks = [
+        encoded[index : index + max_body_bytes]
+        for index in range(0, len(encoded), max_body_bytes)
+    ] or [b""]
     pages: list[bytes] = []
     for page_number, chunk in enumerate(chunks, 1):
         frame = b"".join(
@@ -155,7 +158,9 @@ class PageAssembler:
         key = (page.action_id, page.message_type)
         pages = self._pages.setdefault(key, {})
         pages[page.page_number] = page.body
-        if len(pages) < page.page_count or not all(index in pages for index in range(1, page.page_count + 1)):
+        if len(pages) < page.page_count or not all(
+            index in pages for index in range(1, page.page_count + 1)
+        ):
             return None
         raw = b"".join(pages[index] for index in range(1, page.page_count + 1))
         self._pages.pop(key, None)

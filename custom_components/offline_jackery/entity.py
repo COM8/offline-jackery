@@ -1,28 +1,35 @@
-"""OfflineJackeryEntity class."""
+"""Shared Offline Jackery entity."""
 
 from __future__ import annotations
 
-from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.device_registry import CONNECTION_BLUETOOTH, DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import ATTRIBUTION
+from .config_flow import CONF_SERIAL_NUMBER, CONF_SYSTEM_NAME
+from .const import DOMAIN, MANUFACTURER, MODEL_SOLARVAULT_3_PRO
 from .coordinator import OfflineJackeryDataUpdateCoordinator
 
 
-class IntegrationOfflineJackeryEntity(CoordinatorEntity[OfflineJackeryDataUpdateCoordinator]):
-    """OfflineJackeryEntity class."""
+class OfflineJackeryEntity(CoordinatorEntity[OfflineJackeryDataUpdateCoordinator]):
+    """Base entity tied to one SolarVault coordinator."""
 
-    _attr_attribution = ATTRIBUTION
+    _attr_has_entity_name = True
 
     def __init__(self, coordinator: OfflineJackeryDataUpdateCoordinator) -> None:
-        """Initialize."""
         super().__init__(coordinator)
-        self._attr_unique_id = coordinator.config_entry.entry_id
+        entry = coordinator.config_entry
+        serial = entry.data[CONF_SERIAL_NUMBER]
         self._attr_device_info = DeviceInfo(
-            identifiers={
-                (
-                    coordinator.config_entry.domain,
-                    coordinator.config_entry.entry_id,
-                ),
-            },
+            identifiers={(DOMAIN, serial)},
+            connections={(CONNECTION_BLUETOOTH, coordinator.address)},
+            manufacturer=MANUFACTURER,
+            model=MODEL_SOLARVAULT_3_PRO,
+            name=entry.data[CONF_SYSTEM_NAME],
+            serial_number=serial,
         )
+
+    def _set_unique_id(self, suffix: str) -> None:
+        """Use stable serial plus property suffix for entity identity."""
+
+        serial = self.coordinator.config_entry.data[CONF_SERIAL_NUMBER]
+        self._attr_unique_id = f"{serial}_{suffix}"

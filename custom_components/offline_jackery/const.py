@@ -1,8 +1,11 @@
-"""Constants for offline_jackery."""
+"""Constants for Offline Jackery."""
 
-from logging import Logger, getLogger
-
-LOGGER: Logger = getLogger(__package__)
+import logging
 
 DOMAIN = "offline_jackery"
-ATTRIBUTION = "Data provided by http://jsonplaceholder.typicode.com/"
+MANUFACTURER = "Jackery"
+MODEL_SOLARVAULT_3_PRO = "SolarVault 3 Pro"
+UPDATE_INTERVAL_SECONDS = 5
+MAX_RETRY_INTERVAL_SECONDS = 64
+
+LOGGER = logging.getLogger(__package__)

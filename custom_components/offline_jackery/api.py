@@ -139,7 +139,11 @@ def normalize_systems(data: object) -> list[JackerySystem]:
             JackerySystem(
                 name=str(raw.get("systemName") or "Jackery device"),
                 serial_number=serial,
-                model_code=3001 if 3001 in model_codes else (model_codes[0] if model_codes else None),
+                model_code=(
+                    3001
+                    if 3001 in model_codes
+                    else (model_codes[0] if model_codes else None)
+                ),
                 device_id=_device_id(raw),
                 bluetooth_key=key if isinstance(key, str) and key else None,
             )
