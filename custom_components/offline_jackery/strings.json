@@ -9,7 +9,7 @@
           "login_method": "Login method",
           "account": "Email address or phone number",
           "password": "Password",
-          "region": "Account region (email only)"
+          "region": "Account region e.g. DE or US (email only)"
         }
       },
       "system": {

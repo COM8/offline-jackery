@@ -161,7 +161,8 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         other_jackery: list[str] = []
         other_ble = 0
         for info in discoveries:
-            jackery = is_jackery(list(info.service_uuids))
+            # jackery = is_jackery(list(info.service_uuids))
+            jackery = True
             serial = advertised_serial(dict(info.manufacturer_data))
             label = f"{info.name or 'Unnamed'} — {info.address}"
             if serial:
