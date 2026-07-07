@@ -1,12 +1,13 @@
 """Verified writable numeric SolarVault properties."""
 
 from homeassistant.components.number import NumberEntity, NumberMode
-from homeassistant.const import UnitOfElectricPower
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .coordinator import nested_value
 from .data import OfflineJackeryConfigEntry
 from .entity import OfflineJackeryEntity
+
+UNIT_WATT = "W"
 
 
 async def async_setup_entry(
@@ -26,7 +27,7 @@ class OfflineJackeryFeedGridLimit(OfflineJackeryEntity, NumberEntity):
     _attr_icon = "mdi:transmission-tower-export"
     _attr_native_min_value = 0
     _attr_native_step = 10
-    _attr_native_unit_of_measurement = UnitOfElectricPower.WATT
+    _attr_native_unit_of_measurement = UNIT_WATT
     _attr_mode = NumberMode.BOX
 
     def __init__(self, coordinator: object) -> None:

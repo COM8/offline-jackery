@@ -10,7 +10,7 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorStateClass,
 )
-from homeassistant.const import PERCENTAGE, UnitOfElectricPower, UnitOfTemperature
+from homeassistant.const import PERCENTAGE
 from homeassistant.core import callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -19,6 +19,8 @@ from .data import OfflineJackeryConfigEntry
 from .entity import OfflineJackeryEntity
 
 CONTROL_PATHS = {"telemetry.swEps", "system.isFollowMeterPw", "system.maxFeedGrid"}
+UNIT_CELSIUS = "°C"
+UNIT_WATT = "W"
 POWER_KEYS = {
     "batInPw",
     "batOutPw",
@@ -120,14 +122,14 @@ class OfflineJackerySensor(OfflineJackeryEntity, SensorEntity):
         key = path.rsplit(".", 1)[-1]
         if key in POWER_KEYS:
             self._attr_device_class = SensorDeviceClass.POWER
-            self._attr_native_unit_of_measurement = UnitOfElectricPower.WATT
+            self._attr_native_unit_of_measurement = UNIT_WATT
             self._attr_state_class = SensorStateClass.MEASUREMENT
         elif key in PERCENT_KEYS:
             self._attr_native_unit_of_measurement = PERCENTAGE
             self._attr_state_class = SensorStateClass.MEASUREMENT
         elif key in TEMPERATURE_KEYS:
             self._attr_device_class = SensorDeviceClass.TEMPERATURE
-            self._attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+            self._attr_native_unit_of_measurement = UNIT_CELSIUS
             self._attr_state_class = SensorStateClass.MEASUREMENT
 
     @property
