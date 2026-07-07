@@ -166,7 +166,13 @@ class SolarVaultClient:
             if future is not None and not future.done():
                 future.set_result({"code": page.code, "body": body})
         except Exception as err:  # Bleak callbacks must never escape into the loop.
-            LOGGER.debug("Ignored invalid Jackery notification: %s", err)
+            if self._pending:
+                for future in self._pending.values():
+                    if not future.done():
+                        future.set_exception(err)
+                LOGGER.warning("Invalid Jackery notification failed command: %s", err)
+            else:
+                LOGGER.debug("Ignored invalid Jackery notification: %s", err)
 
     async def _async_command(
         self, action_id: int, message_type: int, body: dict[str, Any]

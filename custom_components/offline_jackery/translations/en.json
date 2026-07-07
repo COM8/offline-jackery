@@ -9,7 +9,7 @@
           "login_method": "Login method",
           "account": "Email address or phone number",
           "password": "Password",
-          "region": "Account region (email only)"
+          "region": "Account region e.g. DE or US (email only)"
         }
       },
       "system": {
@@ -19,19 +19,34 @@
       },
       "bluetooth": {
         "title": "Choose the matching Bluetooth device",
-        "description": "Only devices matching serial **{serial}** can be selected.\n\nOther Jackery devices found:\n{other_jackery}\n\nOther BLE devices found: {other_ble_count}. They are hidden because they cannot be selected safely.",
+        "description": "Only Jackery advertisements matching serial **{serial}** are selectable.\n\nOther Jackery devices found:\n{other_jackery}\n\nOther BLE devices found: {other_ble_count}. They are hidden because they cannot be selected safely.",
         "data": {
-          "address": "Matching device",
-          "rescan": "Scan again"
+          "address": "Matching Jackery device"
+        }
+      },
+      "bluetooth_empty": {
+        "title": "No matching Bluetooth device found",
+        "description": "No visible Bluetooth advertisement matches serial **{serial}** yet.\n\nOther Jackery devices found:\n{other_jackery}\n\nOther BLE devices found: {other_ble_count}.",
+        "menu_options": {
+          "bluetooth": "Scan again",
+          "system": "Choose another Jackery device"
         }
       },
       "validate": {
         "title": "Validate Bluetooth connection",
-        "description": "The connection attempt failed. Make sure the device is nearby and not connected to the Jackery app, then submit to retry."
+        "description": "{reason}\n\nDetails: {details}\n\nMake sure the device is nearby and not connected to the Jackery app.",
+        "menu_options": {
+          "validate": "Try again",
+          "bluetooth": "Choose another Bluetooth device"
+        }
       },
       "confirm": {
         "title": "Device ready",
-        "description": "✅ **{name} connected successfully and returned its status.**\n\nSelect Submit to add it to Home Assistant."
+        "description": "✅ **{name} connected successfully and returned its status.**",
+        "menu_options": {
+          "create": "Add device",
+          "bluetooth": "Choose another Bluetooth device"
+        }
       }
     },
     "error": {
@@ -39,9 +54,7 @@
       "cannot_connect": "Could not reach the Jackery service.",
       "unknown": "Unexpected Jackery service error.",
       "invalid_region": "Enter a two-letter region code, for example DE or US.",
-      "key_failed": "Could not obtain a valid Bluetooth key for this device.",
-      "device_not_found": "No matching Jackery advertisement was found. Move closer and try again.",
-      "validation_failed": "Could not connect and read status from this device."
+      "key_failed": "Could not obtain a valid Bluetooth key for this device."
     },
     "abort": {
       "already_configured": "This Jackery device is already configured.",

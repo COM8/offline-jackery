@@ -69,7 +69,9 @@ def decrypt_packet(notification: bytes, key: bytes) -> bytes:
         unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
         plaintext = unpadder.update(padded) + unpadder.finalize()
     except ValueError as err:
-        raise ProtocolError("Invalid AES padding; the Bluetooth key may be wrong") from err
+        raise ProtocolError(
+            "Invalid AES padding; the Bluetooth key may be wrong"
+        ) from err
     if len(plaintext) < 20 or plaintext[:2] != b"\xdf\xed":
         raise ProtocolError("Notification does not contain Jackery framing")
     if crc16_modbus(plaintext[:-2]) != plaintext[-2:]:
@@ -106,7 +108,7 @@ def parse_response_page(frame: bytes) -> ResponsePage:
         page_count=page_count,
         action_id=int.from_bytes(frame[8:10], "big"),
         message_type=int.from_bytes(frame[10:12], "big"),
-        code=int.from_bytes(frame[12:14], "big", signed=True),
+        code=int.from_bytes(frame[12:13], "big", signed=True),
         body=frame[16:],
     )
 

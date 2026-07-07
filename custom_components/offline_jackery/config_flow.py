@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import voluptuous as vol
+from bleak.exc import BleakError
 from homeassistant import config_entries
 from homeassistant.components import bluetooth
 from homeassistant.helpers import selector
@@ -29,6 +30,14 @@ CONF_REGION = "region"
 CONF_RESCAN = "rescan"
 CONF_SERIAL_NUMBER = "serial_number"
 CONF_SYSTEM_NAME = "system_name"
+
+VALIDATION_EXCEPTIONS = (
+    BleakError,
+    ConnectionError,
+    TimeoutError,
+    RuntimeError,
+    ProtocolError,
+)
 
 
 class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
@@ -81,7 +90,9 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_LOGIN_METHOD, default="email"): selector.SelectSelector(
+                    vol.Required(
+                        CONF_LOGIN_METHOD, default="email"
+                    ): selector.SelectSelector(
                         selector.SelectSelectorConfig(
                             options=["email", "phone"],
                             translation_key="login_method",
@@ -90,7 +101,9 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     ),
                     vol.Required(CONF_ACCOUNT): selector.TextSelector(),
                     vol.Required("password"): selector.TextSelector(
-                        selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
+                        selector.TextSelectorConfig(
+                            type=selector.TextSelectorType.PASSWORD
+                        )
                     ),
                     vol.Optional(CONF_REGION): selector.TextSelector(),
                 }
@@ -180,26 +193,28 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 other_ble += 1
         matching.sort(key=lambda item: str(item["label"]))
         if not matching:
-            errors["base"] = "device_not_found"
+            return self.async_show_menu(
+                step_id="bluetooth_empty",
+                menu_options=["bluetooth", "system"],
+                description_placeholders={
+                    "serial": self._system.serial_number,
+                    "other_jackery": "\n".join(
+                        f"• {item}" for item in other_jackery[:8]
+                    )
+                    or "None",
+                    "other_ble_count": str(other_ble),
+                },
+            )
         details = "\n".join(f"• {item}" for item in other_jackery[:8]) or "None"
-        schema = (
-            vol.Schema(
+        return self.async_show_form(
+            step_id="bluetooth",
+            data_schema=vol.Schema(
                 {
                     vol.Required(CONF_ADDRESS): selector.SelectSelector(
                         selector.SelectSelectorConfig(options=matching)
                     )
                 }
-            )
-            if matching
-            else vol.Schema(
-                {
-                    vol.Required(CONF_RESCAN, default=True): selector.BooleanSelector()
-                }
-            )
-        )
-        return self.async_show_form(
-            step_id="bluetooth",
-            data_schema=schema,
+            ),
             description_placeholders={
                 "serial": self._system.serial_number,
                 "other_jackery": details,
@@ -207,6 +222,14 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             },
             errors=errors,
         )
+
+    async def async_step_bluetooth_empty(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Route menu choices when no matching Bluetooth device was visible."""
+
+        del user_input
+        return await self.async_step_bluetooth()
 
     async def async_step_validate(
         self, user_input: dict[str, Any] | None = None
@@ -222,17 +245,40 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         client = SolarVaultClient(device, decode_bluetooth_key(self._key))
         try:
             await client.async_connect()
-            await client.async_read()
-        except (ConnectionError, TimeoutError, RuntimeError, ProtocolError):
-            LOGGER.exception("Initial Jackery Bluetooth validation failed")
+        except VALIDATION_EXCEPTIONS as err:
+            LOGGER.exception("Initial Jackery Bluetooth connection failed")
             await client.async_disconnect()
-            return self.async_show_form(
-                step_id="validate",
-                data_schema=vol.Schema({}),
-                errors={"base": "validation_failed"},
+            return self._show_validation_menu(
+                reason="The Bluetooth connection could not be opened.",
+                details=str(err) or err.__class__.__name__,
+            )
+        try:
+            await client.async_read()
+        except VALIDATION_EXCEPTIONS as err:
+            LOGGER.exception("Initial Jackery Bluetooth status read failed")
+            await client.async_disconnect()
+            return self._show_validation_menu(
+                reason=(
+                    "The Bluetooth connection opened, but the first status read failed."
+                ),
+                details=str(err) or err.__class__.__name__,
             )
         await client.async_disconnect()
         return await self.async_step_confirm()
+
+    def _show_validation_menu(
+        self, *, reason: str, details: str
+    ) -> config_entries.ConfigFlowResult:
+        """Show actionable retry choices after connect or read validation fails."""
+
+        return self.async_show_menu(
+            step_id="validate",
+            menu_options=["validate", "bluetooth"],
+            description_placeholders={
+                "reason": reason,
+                "details": details,
+            },
+        )
 
     async def async_step_confirm(
         self, user_input: dict[str, Any] | None = None
@@ -240,19 +286,26 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         """Show validation success and create the entry on Add."""
 
         assert self._system is not None
-        if user_input is not None:
-            return self.async_create_entry(
-                title=self._system.name,
-                data={
-                    CONF_ADDRESS: self._address,
-                    CONF_BLUETOOTH_KEY: self._key,
-                    CONF_SERIAL_NUMBER: self._system.serial_number,
-                    CONF_SYSTEM_NAME: self._system.name,
-                },
-            )
-        return self.async_show_form(
+        del user_input
+        return self.async_show_menu(
             step_id="confirm",
-            data_schema=vol.Schema({}),
+            menu_options=["create", "bluetooth"],
             description_placeholders={"name": self._system.name},
-            last_step=True,
+        )
+
+    async def async_step_create(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Create the config entry after the user confirms the validated device."""
+
+        assert self._system is not None
+        del user_input
+        return self.async_create_entry(
+            title=self._system.name,
+            data={
+                CONF_ADDRESS: self._address,
+                CONF_BLUETOOTH_KEY: self._key,
+                CONF_SERIAL_NUMBER: self._system.serial_number,
+                CONF_SYSTEM_NAME: self._system.name,
+            },
         )
