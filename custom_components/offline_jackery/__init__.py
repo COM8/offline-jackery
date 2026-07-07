@@ -9,6 +9,15 @@ from .config_flow import CONF_ADDRESS, CONF_BLUETOOTH_KEY
 from .coordinator import OfflineJackeryDataUpdateCoordinator
 from .data import OfflineJackeryConfigEntry, OfflineJackeryData
 
+# Home Assistant imports custom integration modules before setup in the import
+# executor. Import the always-used platforms here so forwarding entry setups does
+# not need to load platform modules from disk inside the event loop.
+from . import binary_sensor as _binary_sensor  # noqa: F401, E402
+from . import button as _button  # noqa: F401, E402
+from . import number as _number  # noqa: F401, E402
+from . import sensor as _sensor  # noqa: F401, E402
+from . import switch as _switch  # noqa: F401, E402
+
 PLATFORMS = [
     Platform.SENSOR,
     Platform.BINARY_SENSOR,
