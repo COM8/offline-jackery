@@ -51,6 +51,7 @@ POWER_KEYS = {
 }
 PERCENT_KEYS = {"batSoc", "soc", "socChgLimit", "socDischgLimit"}
 TEMPERATURE_KEYS = {"cellTemp"}
+TENTHS_CELSIUS_PATHS = {"telemetry.cellTemp"}
 SIGNAL_KEYS = {"wsig"}
 ENERGY_KEYS = {"egy", "energy", "totalegy", "totalenergy"}
 
@@ -104,6 +105,14 @@ def numeric_value(value: object | None) -> str | int | float | bool | None:
     if not NUMERIC_STRING.fullmatch(text):
         return value
     return float(text) if any(marker in text.lower() for marker in (".", "e")) else int(text)
+
+
+def native_sensor_value(path: str, value: object | None) -> str | int | float | bool | None:
+    """Convert a raw protocol value into its documented engineering unit."""
+    converted = numeric_value(value)
+    if path in TENTHS_CELSIUS_PATHS and isinstance(converted, (int, float)) and not isinstance(converted, bool):
+        return converted / 10
+    return converted
 
 
 def sensor_type_for(path: str, value: object | None = None) -> tuple[SensorDeviceClass | None, str | None, SensorStateClass | None]:
@@ -195,7 +204,7 @@ FIELD_METADATA = {
     "telemetry.batOutPw": ("Battery discharging power", "Power currently flowing out of the SolarVault battery.", UNIT_WATT),
     "system.batInPw": ("System battery charging power", "Combined battery charging power reported for the SolarVault system.", UNIT_WATT),
     "system.batOutPw": ("System battery discharging power", "Combined battery discharging power reported for the SolarVault system.", UNIT_WATT),
-    "telemetry.cellTemp": ("Battery cell temperature", "Temperature reported by the SolarVault battery cells.", UNIT_CELSIUS),
+    "telemetry.cellTemp": ("Battery cell temperature", "Battery-cell temperature.", UNIT_CELSIUS),
     "telemetry.pvPw": ("Solar PV power", "Instantaneous photovoltaic power produced by the connected solar inputs.", UNIT_WATT),
     "telemetry.outOngridPw": ("SolarVault on-grid output power", "Power supplied by the SolarVault to the on-grid output; this can include power used by household loads.", UNIT_WATT),
     "telemetry.inOngridPw": ("SolarVault on-grid input power", "Power received by the SolarVault from the on-grid side.", UNIT_WATT),
@@ -278,7 +287,7 @@ class OfflineJackerySensor(OfflineJackeryEntity, SensorEntity):
         super().__init__(coordinator)
         self.path = path
         self._attr_name = friendly_name(path)
-        value = numeric_value(nested_value(coordinator.data, path))
+        value = native_sensor_value(path, nested_value(coordinator.data, path))
         self._attr_icon = icon_for_path(path, value)
         self._set_unique_id(path.replace(".", "_"))
         device_class, unit, state_class = sensor_type_for(path, value)
@@ -289,7 +298,7 @@ class OfflineJackerySensor(OfflineJackeryEntity, SensorEntity):
     @property
     def native_value(self) -> str | int | float | bool | None:
         """Return the latest value for this protocol path."""
-        return numeric_value(nested_value(self.coordinator.data, self.path))
+        return native_sensor_value(self.path, nested_value(self.coordinator.data, self.path))
 
     @property
     def extra_state_attributes(self) -> dict[str, str]:

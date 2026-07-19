@@ -9,6 +9,7 @@ from custom_components.offline_jackery.sensor import (
     UNIT_WATT,
     UNIT_WATT_HOUR,
     friendly_name,
+    native_sensor_value,
     numeric_value,
     property_description,
     sensor_type_for,
@@ -61,3 +62,9 @@ def test_numeric_protocol_strings_are_published_as_numbers() -> None:
     assert numeric_value("123") == 123
     assert numeric_value("12.5") == 12.5
     assert numeric_value("not a number") == "not a number"
+
+
+def test_cell_temperature_is_converted_from_tenths_of_a_degree() -> None:
+    assert native_sensor_value("telemetry.cellTemp", 300) == 30
+    assert native_sensor_value("telemetry.cellTemp", "305") == 30.5
+    assert native_sensor_value("telemetry.someOtherTemp", 300) == 300
