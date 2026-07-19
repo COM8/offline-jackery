@@ -182,6 +182,17 @@ class OfflineJackeryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
         await asyncio.sleep(0.2)
         await self.async_force_refresh()
 
+    async def async_bind_local_p1_meter(self, serial: str) -> None:
+        """Bind one configured local P1 bridge over BLE."""
+
+        if not self.connected or self._client is None:
+            await self.async_force_refresh()
+        if self._client is None:
+            raise ConnectionError("Jackery device is unavailable")
+        await self._client.async_bind_local_p1_meter(serial)
+        await asyncio.sleep(0.2)
+        await self.async_force_refresh()
+
     async def async_shutdown(self) -> None:
         """Release the GATT connection during unload."""
 

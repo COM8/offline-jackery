@@ -5,9 +5,9 @@
     "@COM8"
   ],
   "config_flow": true,
-  "dependencies": ["bluetooth_adapters"],
+  "dependencies": ["bluetooth_adapters", "zeroconf"],
   "documentation": "https://github.com/COM8/offline-jackery",
-  "integration_type": "device",
+  "integration_type": "hub",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/COM8/offline-jackery/issues",
   "loggers": ["bleak_retry_connector", "custom_components.offline_jackery"],

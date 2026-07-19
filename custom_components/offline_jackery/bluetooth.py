@@ -29,6 +29,7 @@ READ_SYSTEM = (3019, 120)
 SET_EPS = (3022, 107)
 SET_FEED_GRID_LIMIT = (3029, 121)
 SET_FOLLOW_METER = (3044, 121)
+BIND_SMART_METER = (3012, 108)
 
 
 def advertised_serial(manufacturer_data: dict[int, bytes]) -> str | None:
@@ -232,3 +233,35 @@ class SolarVaultClient:
         """Set the configured grid feed-in ceiling in watts."""
 
         await self._async_command(*SET_FEED_GRID_LIMIT, {"maxFeedGrid": power_w})
+
+    async def async_bind_local_p1_meter(self, serial: str) -> None:
+        """Bind a locally advertised HomeWizard-compatible meter."""
+
+        from .bridge import normalize_serial
+
+        serial = normalize_serial(serial)
+        response = await self._async_command(
+            *BIND_SMART_METER,
+            {
+                "smart": [
+                    {
+                        "deviceSn": serial,
+                        "devType": 4,
+                        "subType": 5,
+                        "scanName": "p1meter",
+                        "param": 0,
+                        "linkType": "",
+                        "bindKey": 0,
+                    }
+                ]
+            },
+        )
+        results = response.get("smart")
+        if isinstance(results, list):
+            failed = [
+                item
+                for item in results
+                if isinstance(item, dict) and item.get("code", 0) != 0
+            ]
+            if failed:
+                raise RuntimeError(f"Smart-meter binding failed: {failed}")

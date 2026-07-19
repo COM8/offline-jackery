@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import secrets
 from typing import Any
 
 import voluptuous as vol
@@ -19,6 +20,12 @@ from .api import (
     JackerySystem,
 )
 from .bluetooth import SolarVaultClient, advertised_serial, is_jackery, serial_matches
+from .bridge import (
+    BridgeError,
+    ShellySolarVaultBridge,
+    homewizard_measurement,
+    normalize_serial,
+)
 from .const import DOMAIN, LOGGER
 from .protocol import JACKERY_SERVICE_UUID, ProtocolError, decode_bluetooth_key
 
@@ -30,6 +37,16 @@ CONF_REGION = "region"
 CONF_RESCAN = "rescan"
 CONF_SERIAL_NUMBER = "serial_number"
 CONF_SYSTEM_NAME = "system_name"
+CONF_ENTRY_TYPE = "entry_type"
+ENTRY_TYPE_JACKERY = "jackery"
+ENTRY_TYPE_BRIDGE = "shelly_bridge"
+CONF_SHELLY_HOST = "shelly_host"
+CONF_BRIDGE_SERIAL = "bridge_serial"
+CONF_BRIDGE_PORT = "bridge_port"
+CONF_ADVERTISE_ADDRESS = "advertise_address"
+CONF_SHELLY_USERNAME = "shelly_username"
+CONF_SHELLY_PASSWORD = "shelly_password"
+CONF_INVERT_POWER = "invert_power"
 
 VALIDATION_EXCEPTIONS = (
     BleakError,
@@ -53,6 +70,16 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self._address = ""
 
     async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Choose a locally controlled Jackery or a meter bridge."""
+
+        del user_input
+        return self.async_show_menu(
+            step_id="user", menu_options=["jackery", "shelly_bridge"]
+        )
+
+    async def async_step_jackery(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Authenticate without persisting the account credentials."""
@@ -87,7 +114,7 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     return await self.async_step_system()
 
         return self.async_show_form(
-            step_id="user",
+            step_id="jackery",
             data_schema=vol.Schema(
                 {
                     vol.Required(
@@ -106,6 +133,94 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                         )
                     ),
                     vol.Optional(CONF_REGION): selector.TextSelector(),
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_shelly_bridge(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Validate and create one independent Shelly bridge entry."""
+
+        errors: dict[str, str] = {}
+        suggested_serial = secrets.token_hex(6).upper()
+        if user_input is not None:
+            try:
+                serial = normalize_serial(user_input[CONF_BRIDGE_SERIAL])
+                port = int(user_input[CONF_BRIDGE_PORT])
+                if not 1 <= port <= 65535:
+                    raise ValueError("port")
+                bridge = ShellySolarVaultBridge(
+                    self.hass,
+                    host=user_input[CONF_SHELLY_HOST],
+                    serial=serial,
+                    port=port,
+                    advertise_address=user_input[CONF_ADVERTISE_ADDRESS],
+                    username=user_input[CONF_SHELLY_USERNAME],
+                    password=user_input.get(CONF_SHELLY_PASSWORD, ""),
+                    invert_power=user_input[CONF_INVERT_POWER],
+                )
+                reading = await bridge.async_read_shelly()
+                homewizard_measurement(
+                    reading,
+                    serial=serial,
+                    invert_power=user_input[CONF_INVERT_POWER],
+                )
+            except (BridgeError, ValueError):
+                errors["base"] = "invalid_bridge"
+            else:
+                await self.async_set_unique_id(f"bridge:{serial}")
+                self._abort_if_unique_id_configured()
+                for entry in self._async_current_entries():
+                    if (
+                        entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_BRIDGE
+                        and entry.data.get(CONF_BRIDGE_PORT) == port
+                    ):
+                        errors["base"] = "port_in_use"
+                        break
+                if not errors:
+                    data = dict(user_input)
+                    data.update(
+                        {
+                            CONF_ENTRY_TYPE: ENTRY_TYPE_BRIDGE,
+                            CONF_BRIDGE_SERIAL: serial,
+                            CONF_BRIDGE_PORT: port,
+                        }
+                    )
+                    return self.async_create_entry(
+                        title=f"Shelly P1 bridge {serial[-6:]}", data=data
+                    )
+
+        return self.async_show_form(
+            step_id="shelly_bridge",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_SHELLY_HOST): selector.TextSelector(),
+                    vol.Required(
+                        CONF_BRIDGE_SERIAL, default=suggested_serial
+                    ): selector.TextSelector(),
+                    vol.Required(
+                        CONF_BRIDGE_PORT, default=21001
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=1,
+                            max=65535,
+                            mode=selector.NumberSelectorMode.BOX,
+                        )
+                    ),
+                    vol.Required(CONF_ADVERTISE_ADDRESS): selector.TextSelector(),
+                    vol.Required(
+                        CONF_SHELLY_USERNAME, default="admin"
+                    ): selector.TextSelector(),
+                    vol.Optional(CONF_SHELLY_PASSWORD): selector.TextSelector(
+                        selector.TextSelectorConfig(
+                            type=selector.TextSelectorType.PASSWORD
+                        )
+                    ),
+                    vol.Required(
+                        CONF_INVERT_POWER, default=False
+                    ): selector.BooleanSelector(),
                 }
             ),
             errors=errors,
@@ -303,6 +418,7 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_create_entry(
             title=self._system.name,
             data={
+                CONF_ENTRY_TYPE: ENTRY_TYPE_JACKERY,
                 CONF_ADDRESS: self._address,
                 CONF_BLUETOOTH_KEY: self._key,
                 CONF_SERIAL_NUMBER: self._system.serial_number,

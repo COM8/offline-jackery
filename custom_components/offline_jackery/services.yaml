@@ -1,0 +1,17 @@
+bind_shelly_bridge:
+  name: Bind Shelly bridge
+  description: Bind a configured local Shelly/HomeWizard bridge to a SolarVault over Bluetooth.
+  fields:
+    config_entry_id:
+      name: Jackery config entry
+      description: The config entry ID of the target Jackery SolarVault.
+      required: true
+      selector:
+        config_entry:
+          integration: offline_jackery
+    bridge_serial:
+      name: Bridge serial
+      description: The 12-digit hexadecimal serial shown by the bridge entry.
+      required: true
+      selector:
+        text:

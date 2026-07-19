@@ -3,6 +3,13 @@
   "config": {
     "step": {
       "user": {
+        "title": "Choose what to add",
+        "menu_options": {
+          "jackery": "Jackery SolarVault",
+          "shelly_bridge": "Shelly Pro 3EM local P1 bridge"
+        }
+      },
+      "jackery": {
         "title": "Sign in to Jackery",
         "description": "Your credentials are used only to retrieve the Bluetooth key and are not stored. Email accounts require the two-letter region selected in the Jackery app.",
         "data": {
@@ -10,6 +17,19 @@
           "account": "Email address or phone number",
           "password": "Password",
           "region": "Account region e.g. DE or US (email only)"
+        }
+      },
+      "shelly_bridge": {
+        "title": "Add local Shelly P1 bridge",
+        "description": "This exposes one Shelly Pro 3EM as a HomeWizard P1 meter. Use a unique port for every bridge. The advertised address must be the Home Assistant host's LAN IPv4 address reachable by the SolarVault.",
+        "data": {
+          "shelly_host": "Shelly hostname, IP, or base URL",
+          "bridge_serial": "Virtual meter serial (12 hexadecimal digits)",
+          "bridge_port": "Local HTTP port",
+          "advertise_address": "Home Assistant LAN IPv4 address",
+          "shelly_username": "Shelly username",
+          "shelly_password": "Shelly password (optional)",
+          "invert_power": "Invert import/export power sign"
         }
       },
       "system": {
@@ -54,7 +74,9 @@
       "cannot_connect": "Could not reach the Jackery service.",
       "unknown": "Unexpected Jackery service error.",
       "invalid_region": "Enter a two-letter region code, for example DE or US.",
-      "key_failed": "Could not obtain a valid Bluetooth key for this device."
+      "key_failed": "Could not obtain a valid Bluetooth key for this device.",
+      "invalid_bridge": "Could not validate the bridge settings or read all required Shelly Pro 3EM fields.",
+      "port_in_use": "Another Offline Jackery bridge already uses this HTTP port."
     },
     "abort": {
       "already_configured": "This Jackery device is already configured.",
