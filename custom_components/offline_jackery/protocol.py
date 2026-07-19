@@ -60,9 +60,7 @@ def encrypt_packet(packet: bytes, key: bytes, *, iv: bytes | None = None) -> byt
 
 def decrypt_packet(notification: bytes, key: bytes) -> bytes:
     """Decrypt a notification and validate padding, magic, and CRC."""
-    if len(notification) < ENCRYPTED_PACKET_OVERHEAD or (
-        len(notification) - AES_BLOCK_BYTES
-    ) % AES_BLOCK_BYTES:
+    if len(notification) < ENCRYPTED_PACKET_OVERHEAD or (len(notification) - AES_BLOCK_BYTES) % AES_BLOCK_BYTES:
         raise ProtocolError("Invalid encrypted notification length")
     iv, ciphertext = notification[:AES_BLOCK_BYTES], notification[AES_BLOCK_BYTES:]
     decryptor = Cipher(algorithms.AES(key), modes.CBC(iv)).decryptor()
@@ -71,9 +69,7 @@ def decrypt_packet(notification: bytes, key: bytes) -> bytes:
         unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
         plaintext = unpadder.update(padded) + unpadder.finalize()
     except ValueError as err:
-        raise ProtocolError(
-            "Invalid AES padding; the Bluetooth key may be wrong"
-        ) from err
+        raise ProtocolError("Invalid AES padding; the Bluetooth key may be wrong") from err
     if len(plaintext) < MIN_PLAINTEXT_BYTES or plaintext[:2] != b"\xdf\xed":
         raise ProtocolError("Notification does not contain Jackery framing")
     if crc16_modbus(plaintext[:-2]) != plaintext[-2:]:
@@ -127,10 +123,7 @@ def build_command_pages(
     if message_type > 0:
         payload.setdefault("cmd", message_type)
     encoded = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode()
-    chunks = [
-        encoded[index : index + max_body_bytes]
-        for index in range(0, len(encoded), max_body_bytes)
-    ] or [b""]
+    chunks = [encoded[index : index + max_body_bytes] for index in range(0, len(encoded), max_body_bytes)] or [b""]
     pages: list[bytes] = []
     for page_number, chunk in enumerate(chunks, 1):
         frame = b"".join(
@@ -160,9 +153,7 @@ class PageAssembler:
         key = (page.action_id, page.message_type)
         pages = self._pages.setdefault(key, {})
         pages[page.page_number] = page.body
-        if len(pages) < page.page_count or not all(
-            index in pages for index in range(1, page.page_count + 1)
-        ):
+        if len(pages) < page.page_count or not all(index in pages for index in range(1, page.page_count + 1)):
             return None
         raw = b"".join(pages[index] for index in range(1, page.page_count + 1))
         self._pages.pop(key, None)

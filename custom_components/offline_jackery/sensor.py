@@ -65,20 +65,14 @@ def property_description(path: str) -> str:
     known = {
         "batSoc": "Battery state of charge reported by the SolarVault.",
         "soc": "Combined system battery state of charge.",
-        "gridInPw": (
-            "Power currently imported from the public grid as measured by the meter."
-        ),
-        "gridOutPw": (
-            "Power currently exported to the public grid as measured by the meter."
-        ),
+        "gridInPw": ("Power currently imported from the public grid as measured by the meter."),
+        "gridOutPw": ("Power currently exported to the public grid as measured by the meter."),
         "outOngridPw": "SolarVault on-grid output, including power used by local loads.",
         "pvPw": "Combined instantaneous photovoltaic input power.",
         "cellTemp": "Battery cell temperature reported by the SolarVault.",
         "wsig": "Wi-Fi signal value reported by the device.",
     }
-    return known.get(
-        key, f"Read-only `{path}` value reported by the Jackery BLE interface."
-    )
+    return known.get(key, f"Read-only `{path}` value reported by the Jackery BLE interface.")
 
 
 async def async_setup_entry(
@@ -92,17 +86,11 @@ async def async_setup_entry(
 
     @callback
     def add_missing() -> None:
-        paths = {
-            path: value
-            for path, value in scalar_values(coordinator.data or {}).items()
-            if not isinstance(value, bool)
-        }
+        paths = {path: value for path, value in scalar_values(coordinator.data or {}).items() if not isinstance(value, bool)}
         new_paths = sorted(set(paths) - known - CONTROL_PATHS)
         if new_paths:
             known.update(new_paths)
-            async_add_entities(
-                OfflineJackerySensor(coordinator, path) for path in new_paths
-            )
+            async_add_entities(OfflineJackerySensor(coordinator, path) for path in new_paths)
 
     add_missing()
     entry.async_on_unload(coordinator.async_add_listener(add_missing))

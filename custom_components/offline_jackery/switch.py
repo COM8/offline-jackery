@@ -75,12 +75,7 @@ class OfflineJackerySwitch(OfflineJackeryEntity, SwitchEntity):
     def extra_state_attributes(self) -> dict[str, str]:
         """Describe the safety-sensitive writable property."""
         descriptions = {
-            "telemetry.swEps": (
-                "Controls the SolarVault Off-grid/EPS output. This can affect "
-                "attached equipment."
-            ),
-            "system.isFollowMeterPw": (
-                "Controls whether SolarVault output follows its configured smart meter."
-            ),
+            "telemetry.swEps": ("Controls the SolarVault Off-grid/EPS output. This can affect attached equipment."),
+            "system.isFollowMeterPw": ("Controls whether SolarVault output follows its configured smart meter."),
         }
         return {"protocol_field": self._path, "description": descriptions[self._path]}

@@ -17,12 +17,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.serialization import load_der_public_key
 
 API_BASE = "https://iot.jackeryapp.com/v1/"
-LOGIN_PUBLIC_KEY_B64 = (
-    "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCVmzgJy/4XolxPnkfu32YtJqYG"
-    "FLYqf9/rnVgURJED+8J9J3Pccd6+9L97/+7COZE5OkejsgOkqeLNC9C3r5mhpE4"
-    "zk/HStss7Q8/5DqkGD1annQ+eoICo3oi0dITZ0Qll56Dowb8lXi6WHViVDdih/oe"
-    "UwVJY89uJNtTWrz7t7QIDAQAB"
-)
+LOGIN_PUBLIC_KEY_B64 = "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCVmzgJy/4XolxPnkfu32YtJqYGFLYqf9/rnVgURJED+8J9J3Pccd6+9L97/+7COZE5OkejsgOkqeLNC9C3r5mhpE4zk/HStss7Q8/5DqkGD1annQ+eoICo3oi0dITZ0Qll56Dowb8lXi6WHViVDdih/oeUwVJY89uJNtTWrz7t7QIDAQAB"
 LOGIN_SEED_BYTES = 16
 SOLARVAULT_MODEL_CODE = 3001
 MAX_API_ERROR_MESSAGE_LENGTH = 200
@@ -62,9 +57,7 @@ class JackerySystem:
     bluetooth_key: str | None
 
 
-def build_login_form(
-    details: LoginDetails, *, random_bytes: bytes | None = None
-) -> dict[str, str]:
+def build_login_form(details: LoginDetails, *, random_bytes: bytes | None = None) -> dict[str, str]:
     """Build the Android app's RSA-wrapped AES password-login form."""
     seed = os.urandom(LOGIN_SEED_BYTES) if random_bytes is None else random_bytes
     if len(seed) != LOGIN_SEED_BYTES:
@@ -129,13 +122,7 @@ def normalize_systems(data: object) -> list[JackerySystem]:
         if not isinstance(raw, dict):
             continue
         devices = raw.get("devices")
-        model_codes = [
-            item.get("modelCode")
-            for item in devices
-            if isinstance(devices, list)
-            and isinstance(item, dict)
-            and isinstance(item.get("modelCode"), int)
-        ] if isinstance(devices, list) else []
+        model_codes = [item.get("modelCode") for item in devices if isinstance(devices, list) and isinstance(item, dict) and isinstance(item.get("modelCode"), int)] if isinstance(devices, list) else []
         serial = raw.get("deviceSn") or raw.get("systemSn")
         if not isinstance(serial, str) or not serial:
             continue
@@ -144,11 +131,7 @@ def normalize_systems(data: object) -> list[JackerySystem]:
             JackerySystem(
                 name=str(raw.get("systemName") or "Jackery device"),
                 serial_number=serial,
-                model_code=(
-                    SOLARVAULT_MODEL_CODE
-                    if SOLARVAULT_MODEL_CODE in model_codes
-                    else (model_codes[0] if model_codes else None)
-                ),
+                model_code=(SOLARVAULT_MODEL_CODE if SOLARVAULT_MODEL_CODE in model_codes else (model_codes[0] if model_codes else None)),
                 device_id=_device_id(raw),
                 bluetooth_key=key if isinstance(key, str) and key else None,
             )
@@ -176,9 +159,7 @@ class JackeryCloudClient:
             "network": "wifi",
         }
 
-    async def _request(
-        self, method: str, path: str, fields: dict[str, str] | None = None
-    ) -> Any:
+    async def _request(self, method: str, path: str, fields: dict[str, str] | None = None) -> Any:
         try:
             async with self._session.request(
                 method,
@@ -202,18 +183,13 @@ class JackeryCloudClient:
             raise JackeryApiError("Jackery returned an invalid response")
         try:
             code = int(envelope.get("code", -1))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             code = -1
         if code != 0:
             message = envelope.get("msg")
             if code in {10402, 10403}:
                 raise JackeryAuthenticationError("Invalid Jackery credentials")
-            safe = (
-                message
-                if isinstance(message, str)
-                and len(message) <= MAX_API_ERROR_MESSAGE_LENGTH
-                else "request failed"
-            )
+            safe = message if isinstance(message, str) and len(message) <= MAX_API_ERROR_MESSAGE_LENGTH else "request failed"
             error_message = f"Jackery API error {code}: {safe}"
             raise JackeryApiError(error_message)
         token = envelope.get("token")

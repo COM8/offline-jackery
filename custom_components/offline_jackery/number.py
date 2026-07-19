@@ -54,8 +54,5 @@ class OfflineJackeryFeedGridLimit(OfflineJackeryEntity, NumberEntity):
         """Describe what the grid limit does and does not control."""
         return {
             "protocol_field": "system.maxFeedGrid",
-            "description": (
-                "Grid export ceiling in watts. Actual export also depends on PV, "
-                "battery, household load, meter following, and firmware limits."
-            ),
+            "description": ("Grid export ceiling in watts. Actual export also depends on PV, battery, household load, meter following, and firmware limits."),
         }

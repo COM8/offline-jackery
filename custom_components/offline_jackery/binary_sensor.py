@@ -27,17 +27,11 @@ async def async_setup_entry(
 
     @callback
     def add_missing() -> None:
-        boolean_paths = {
-            path
-            for path, value in scalar_values(coordinator.data or {}).items()
-            if isinstance(value, bool)
-        }
+        boolean_paths = {path for path, value in scalar_values(coordinator.data or {}).items() if isinstance(value, bool)}
         new_paths = sorted(boolean_paths - known)
         if new_paths:
             known.update(new_paths)
-            async_add_entities(
-                OfflineJackeryBooleanSensor(coordinator, path) for path in new_paths
-            )
+            async_add_entities(OfflineJackeryBooleanSensor(coordinator, path) for path in new_paths)
 
     add_missing()
     entry.async_on_unload(coordinator.async_add_listener(add_missing))

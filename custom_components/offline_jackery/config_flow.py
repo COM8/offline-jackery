@@ -79,18 +79,12 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self._key = ""
         self._address = ""
 
-    async def async_step_user(
-        self, user_input: dict[str, Any] | None = None
-    ) -> config_entries.ConfigFlowResult:
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
         """Choose a locally controlled Jackery or a meter bridge."""
         del user_input
-        return self.async_show_menu(
-            step_id="user", menu_options=["jackery", "shelly_bridge"]
-        )
+        return self.async_show_menu(step_id="user", menu_options=["jackery", "shelly_bridge"])
 
-    async def async_step_jackery(
-        self, user_input: dict[str, Any] | None = None
-    ) -> config_entries.ConfigFlowResult:
+    async def async_step_jackery(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
         """Authenticate without persisting the account credentials."""
         errors: dict[str, str] = {}
         if user_input is not None:
@@ -125,9 +119,7 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="jackery",
             data_schema=vol.Schema(
                 {
-                    vol.Required(
-                        CONF_LOGIN_METHOD, default="email"
-                    ): selector.SelectSelector(
+                    vol.Required(CONF_LOGIN_METHOD, default="email"): selector.SelectSelector(
                         selector.SelectSelectorConfig(
                             options=["email", "phone"],
                             translation_key="login_method",
@@ -135,20 +127,14 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                         )
                     ),
                     vol.Required(CONF_ACCOUNT): selector.TextSelector(),
-                    vol.Required("password"): selector.TextSelector(
-                        selector.TextSelectorConfig(
-                            type=selector.TextSelectorType.PASSWORD
-                        )
-                    ),
+                    vol.Required("password"): selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)),
                     vol.Optional(CONF_REGION): selector.TextSelector(),
                 }
             ),
             errors=errors,
         )
 
-    async def async_step_shelly_bridge(
-        self, user_input: dict[str, Any] | None = None
-    ) -> config_entries.ConfigFlowResult:
+    async def async_step_shelly_bridge(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
         """Validate and create one independent Shelly bridge entry."""
         errors: dict[str, str] = {}
         suggested_serial = secrets.token_hex(6).upper()
@@ -173,16 +159,13 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     serial=serial,
                     invert_power=user_input[CONF_INVERT_POWER],
                 )
-            except (BridgeError, ValueError):
+            except BridgeError, ValueError:
                 errors["base"] = "invalid_bridge"
             else:
                 await self.async_set_unique_id(f"bridge:{serial}")
                 self._abort_if_unique_id_configured()
                 for entry in self._async_current_entries():
-                    if (
-                        entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_BRIDGE
-                        and entry.data.get(CONF_BRIDGE_PORT) == port
-                    ):
+                    if entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_BRIDGE and entry.data.get(CONF_BRIDGE_PORT) == port:
                         errors["base"] = "port_in_use"
                         break
                 if not errors:
@@ -194,21 +177,15 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                             CONF_BRIDGE_PORT: port,
                         }
                     )
-                    return self.async_create_entry(
-                        title=f"Shelly P1 bridge {serial[-6:]}", data=data
-                    )
+                    return self.async_create_entry(title=f"Shelly P1 bridge {serial[-6:]}", data=data)
 
         return self.async_show_form(
             step_id="shelly_bridge",
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_SHELLY_HOST): selector.TextSelector(),
-                    vol.Required(
-                        CONF_BRIDGE_SERIAL, default=suggested_serial
-                    ): selector.TextSelector(),
-                    vol.Required(
-                        CONF_BRIDGE_PORT, default=21001
-                    ): selector.NumberSelector(
+                    vol.Required(CONF_BRIDGE_SERIAL, default=suggested_serial): selector.TextSelector(),
+                    vol.Required(CONF_BRIDGE_PORT, default=21001): selector.NumberSelector(
                         selector.NumberSelectorConfig(
                             min=1,
                             max=BRIDGE_PORT_MAXIMUM,
@@ -216,25 +193,15 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                         )
                     ),
                     vol.Required(CONF_ADVERTISE_ADDRESS): selector.TextSelector(),
-                    vol.Required(
-                        CONF_SHELLY_USERNAME, default="admin"
-                    ): selector.TextSelector(),
-                    vol.Optional(CONF_SHELLY_PASSWORD): selector.TextSelector(
-                        selector.TextSelectorConfig(
-                            type=selector.TextSelectorType.PASSWORD
-                        )
-                    ),
-                    vol.Required(
-                        CONF_INVERT_POWER, default=False
-                    ): selector.BooleanSelector(),
+                    vol.Required(CONF_SHELLY_USERNAME, default="admin"): selector.TextSelector(),
+                    vol.Optional(CONF_SHELLY_PASSWORD): selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)),
+                    vol.Required(CONF_INVERT_POWER, default=False): selector.BooleanSelector(),
                 }
             ),
             errors=errors,
         )
 
-    async def async_step_system(
-        self, user_input: dict[str, Any] | None = None
-    ) -> config_entries.ConfigFlowResult:
+    async def async_step_system(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
         """Select one account system and obtain its Bluetooth key."""
         errors: dict[str, str] = {}
         if user_input is not None:
@@ -244,7 +211,7 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             try:
                 self._key = await self._cloud.async_bluetooth_key(self._system)
                 decode_bluetooth_key(self._key)
-            except (JackeryApiError, ProtocolError):
+            except JackeryApiError, ProtocolError:
                 LOGGER.exception("Could not obtain a valid Jackery Bluetooth key")
                 errors["base"] = "key_failed"
             else:
@@ -255,30 +222,17 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         options = [
             selector.SelectOptionDict(
                 value=serial,
-                label=f"{system.name} — {serial}"
-                + (
-                    " — SolarVault 3 Pro"
-                    if system.model_code == SOLARVAULT_MODEL_CODE
-                    else ""
-                ),
+                label=f"{system.name} — {serial}" + (" — SolarVault 3 Pro" if system.model_code == SOLARVAULT_MODEL_CODE else ""),
             )
             for serial, system in self._systems.items()
         ]
         return self.async_show_form(
             step_id="system",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_SERIAL_NUMBER): selector.SelectSelector(
-                        selector.SelectSelectorConfig(options=options)
-                    )
-                }
-            ),
+            data_schema=vol.Schema({vol.Required(CONF_SERIAL_NUMBER): selector.SelectSelector(selector.SelectSelectorConfig(options=options))}),
             errors=errors,
         )
 
-    async def async_step_bluetooth(
-        self, user_input: dict[str, Any] | None = None
-    ) -> config_entries.ConfigFlowResult:
+    async def async_step_bluetooth(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
         """Actively scan and allow only a serial-matching Jackery device."""
         if self._system is None:
             return self.async_abort(reason="invalid_state")
@@ -292,9 +246,7 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             return await self.async_step_validate()
 
         await bluetooth.async_request_active_scan(self.hass)
-        discoveries = bluetooth.async_discovered_service_info(
-            self.hass, connectable=True
-        )
+        discoveries = bluetooth.async_discovered_service_info(self.hass, connectable=True)
         matching: list[selector.SelectOptionDict] = []
         other_jackery: list[str] = []
         other_ble = 0
@@ -304,14 +256,8 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             label = f"{info.name or 'Unnamed'} — {info.address}"
             if serial:
                 label += f" — serial {serial}"
-            if jackery and serial_matches(
-                self._system.serial_number, serial, info.name
-            ):
-                matching.append(
-                    selector.SelectOptionDict(
-                        value=info.address, label=f"✓ Match — {label}"
-                    )
-                )
+            if jackery and serial_matches(self._system.serial_number, serial, info.name):
+                matching.append(selector.SelectOptionDict(value=info.address, label=f"✓ Match — {label}"))
             elif jackery:
                 other_jackery.append(label)
             else:
@@ -323,23 +269,14 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 menu_options=["bluetooth", "system"],
                 description_placeholders={
                     "serial": self._system.serial_number,
-                    "other_jackery": "\n".join(
-                        f"• {item}" for item in other_jackery[:8]
-                    )
-                    or "None",
+                    "other_jackery": "\n".join(f"• {item}" for item in other_jackery[:8]) or "None",
                     "other_ble_count": str(other_ble),
                 },
             )
         details = "\n".join(f"• {item}" for item in other_jackery[:8]) or "None"
         return self.async_show_form(
             step_id="bluetooth",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_ADDRESS): selector.SelectSelector(
-                        selector.SelectSelectorConfig(options=matching)
-                    )
-                }
-            ),
+            data_schema=vol.Schema({vol.Required(CONF_ADDRESS): selector.SelectSelector(selector.SelectSelectorConfig(options=matching))}),
             description_placeholders={
                 "serial": self._system.serial_number,
                 "other_jackery": details,
@@ -348,21 +285,15 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_bluetooth_empty(
-        self, user_input: dict[str, Any] | None = None
-    ) -> config_entries.ConfigFlowResult:
+    async def async_step_bluetooth_empty(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
         """Route menu choices when no matching Bluetooth device was visible."""
         del user_input
         return await self.async_step_bluetooth()
 
-    async def async_step_validate(
-        self, user_input: dict[str, Any] | None = None
-    ) -> config_entries.ConfigFlowResult:
+    async def async_step_validate(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
         """Connect with the key and read the first complete status snapshot."""
         del user_input
-        device = bluetooth.async_ble_device_from_address(
-            self.hass, self._address, connectable=True
-        )
+        device = bluetooth.async_ble_device_from_address(self.hass, self._address, connectable=True)
         if device is None:
             return self.async_abort(reason="device_unavailable")
         client = SolarVaultClient(device, decode_bluetooth_key(self._key))
@@ -381,17 +312,13 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             LOGGER.exception("Initial Jackery Bluetooth status read failed")
             await client.async_disconnect()
             return self._show_validation_menu(
-                reason=(
-                    "The Bluetooth connection opened, but the first status read failed."
-                ),
+                reason=("The Bluetooth connection opened, but the first status read failed."),
                 details=str(err) or err.__class__.__name__,
             )
         await client.async_disconnect()
         return await self.async_step_confirm()
 
-    def _show_validation_menu(
-        self, *, reason: str, details: str
-    ) -> config_entries.ConfigFlowResult:
+    def _show_validation_menu(self, *, reason: str, details: str) -> config_entries.ConfigFlowResult:
         """Show actionable retry choices after connect or read validation fails."""
         return self.async_show_menu(
             step_id="validate",
@@ -402,9 +329,7 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             },
         )
 
-    async def async_step_confirm(
-        self, user_input: dict[str, Any] | None = None
-    ) -> config_entries.ConfigFlowResult:
+    async def async_step_confirm(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
         """Show validation success and create the entry on Add."""
         if self._system is None:
             return self.async_abort(reason="invalid_state")
@@ -415,9 +340,7 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             description_placeholders={"name": self._system.name},
         )
 
-    async def async_step_create(
-        self, user_input: dict[str, Any] | None = None
-    ) -> config_entries.ConfigFlowResult:
+    async def async_step_create(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
         """Create the config entry after the user confirms the validated device."""
         if self._system is None:
             return self.async_abort(reason="invalid_state")

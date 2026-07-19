@@ -86,9 +86,7 @@ class OfflineJackeryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
 
     async def _async_connect(self) -> SolarVaultClient:
         """Resolve the best HA adapter/proxy and create a fresh Bleak client."""
-        device = bluetooth.async_ble_device_from_address(
-            self.hass, self.address, connectable=True
-        )
+        device = bluetooth.async_ble_device_from_address(self.hass, self.address, connectable=True)
         if device is None:
             raise ConnectionError("No connectable adapter can currently reach the device")
         client = SolarVaultClient(
@@ -205,9 +203,7 @@ def nested_value(data: object, path: str) -> object | None:
     return current
 
 
-def scalar_values(
-    value: object, prefix: str = ""
-) -> dict[str, str | int | float | bool]:
+def scalar_values(value: object, prefix: str = "") -> dict[str, str | int | float | bool]:
     """Flatten every scalar BLE property, including list members."""
     result: dict[str, str | int | float | bool] = {}
     if isinstance(value, dict):

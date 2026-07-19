@@ -30,9 +30,7 @@ class BridgeError(RuntimeError):
 def normalize_serial(value: str) -> str:
     """Return the canonical HomeWizard serial used by Jackery."""
     serial = value.strip().replace(":", "").replace("-", "").upper()
-    if len(serial) != SERIAL_LENGTH or any(
-        char not in "0123456789ABCDEF" for char in serial
-    ):
+    if len(serial) != SERIAL_LENGTH or any(char not in "0123456789ABCDEF" for char in serial):
         raise ValueError("Serial must contain exactly 12 hexadecimal digits")
     return serial
 
@@ -57,9 +55,7 @@ def _number(source: dict[str, Any], key: str) -> float:
     return float(value)
 
 
-def homewizard_measurement(
-    shelly: dict[str, Any], *, serial: str, invert_power: bool = False
-) -> dict[str, Any]:
+def homewizard_measurement(shelly: dict[str, Any], *, serial: str, invert_power: bool = False) -> dict[str, Any]:
     """Map one EM.GetStatus result to HomeWizard local API v1."""
     sign = -1.0 if invert_power else 1.0
     result: dict[str, Any] = {
@@ -71,15 +67,9 @@ def homewizard_measurement(
         "active_power_w": round(_number(shelly, "total_act_power") * sign, 3),
     }
     for index, phase in enumerate(("a", "b", "c"), 1):
-        result[f"active_power_l{index}_w"] = round(
-            _number(shelly, f"{phase}_act_power") * sign, 3
-        )
-        result[f"active_voltage_l{index}_v"] = round(
-            _number(shelly, f"{phase}_voltage"), 3
-        )
-        result[f"active_current_l{index}_a"] = round(
-            _number(shelly, f"{phase}_current"), 3
-        )
+        result[f"active_power_l{index}_w"] = round(_number(shelly, f"{phase}_act_power") * sign, 3)
+        result[f"active_voltage_l{index}_v"] = round(_number(shelly, f"{phase}_voltage"), 3)
+        result[f"active_current_l{index}_a"] = round(_number(shelly, f"{phase}_current"), 3)
     return result
 
 
@@ -125,9 +115,7 @@ class ShellySolarVaultBridge:
         if self._session is not None:
             session = self._session
         elif self.password:
-            temporary_session = ClientSession(
-                middlewares=(DigestAuthMiddleware(self.username, self.password),)
-            )
+            temporary_session = ClientSession(middlewares=(DigestAuthMiddleware(self.username, self.password),))
             session = temporary_session
         else:
             session = async_get_clientsession(self.hass)
@@ -151,9 +139,7 @@ class ShellySolarVaultBridge:
     async def async_start(self) -> None:
         """Start serving before publishing the endpoint."""
         if self.password:
-            self._session = ClientSession(
-                middlewares=(DigestAuthMiddleware(self.username, self.password),)
-            )
+            self._session = ClientSession(middlewares=(DigestAuthMiddleware(self.username, self.password),))
         app = web.Application()
         app.router.add_get("/api", self._api)
         app.router.add_get("/api/", self._api)
@@ -168,9 +154,7 @@ class ShellySolarVaultBridge:
             await self.async_stop()
             raise
 
-        self._task = self.hass.async_create_background_task(
-            self._poll(), f"offline_jackery_bridge_{self.serial}"
-        )
+        self._task = self.hass.async_create_background_task(self._poll(), f"offline_jackery_bridge_{self.serial}")
         name = f"p1meter-{self.serial}"
         service = ServiceInfo(
             SERVICE_TYPE,
@@ -210,9 +194,7 @@ class ShellySolarVaultBridge:
             started = time.monotonic()
             try:
                 value = await self.async_read_shelly()
-                self.snapshot.measurement = homewizard_measurement(
-                    value, serial=self.serial, invert_power=self.invert_power
-                )
+                self.snapshot.measurement = homewizard_measurement(value, serial=self.serial, invert_power=self.invert_power)
                 self.snapshot.updated = time.monotonic()
                 self.snapshot.error = ""
             except BridgeError as err:
@@ -251,8 +233,6 @@ class ShellySolarVaultBridge:
     async def _health(self, _request: web.Request) -> web.Response:
         value, error = self._current()
         return web.json_response(
-            {"status": "ok", "active_power_w": value["active_power_w"]}
-            if value is not None
-            else {"status": "unavailable", "error": error},
+            {"status": "ok", "active_power_w": value["active_power_w"]} if value is not None else {"status": "unavailable", "error": error},
             status=200 if value is not None else 503,
         )

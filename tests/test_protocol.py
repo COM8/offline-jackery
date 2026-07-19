@@ -29,9 +29,7 @@ def test_key_validation() -> None:
 
 
 def test_command_frame_contains_cmd_and_valid_crc() -> None:
-    encrypted = build_command_pages(
-        action_id=3011, message_type=106, body={}, key=KEY
-    )[0]
+    encrypted = build_command_pages(action_id=3011, message_type=106, body={}, key=KEY)[0]
     frame = decrypt_packet(encrypted, KEY)
     assert frame[:2] == b"\xdf\xed"
     assert int.from_bytes(frame[8:10], "big") == 3011

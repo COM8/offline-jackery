@@ -62,13 +62,7 @@ def is_jackery(service_uuids: list[str] | tuple[str, ...]) -> bool:
 def serial_matches(expected: str, advertised: str | None, name: str | None) -> bool:
     """Match the API serial against decoded advertisement data or local name."""
     wanted = expected.strip().casefold()
-    return bool(
-        wanted
-        and (
-            (advertised and advertised.strip().casefold() == wanted)
-            or (name and wanted in name.casefold())
-        )
-    )
+    return bool(wanted and ((advertised and advertised.strip().casefold() == wanted) or (name and wanted in name.casefold())))
 
 
 def merge_dict(target: dict[str, Any], update: dict[str, Any]) -> None:
@@ -120,9 +114,7 @@ class SolarVaultClient:
             self.device.name or "Jackery device",
             disconnected_callback=self._on_disconnect,
         )
-        self._write_characteristic = self._client.services.get_characteristic(
-            WRITE_CHARACTERISTIC_UUID
-        )
+        self._write_characteristic = self._client.services.get_characteristic(WRITE_CHARACTERISTIC_UUID)
         notify = self._client.services.get_characteristic(NOTIFY_CHARACTERISTIC_UUID)
         if self._write_characteristic is None or notify is None:
             await self._client.disconnect()
@@ -147,9 +139,7 @@ class SolarVaultClient:
         if self._external_disconnect:
             self._external_disconnect()
 
-    def _on_notification(
-        self, _characteristic: BleakGATTCharacteristic, encrypted: bytearray
-    ) -> None:
+    def _on_notification(self, _characteristic: BleakGATTCharacteristic, encrypted: bytearray) -> None:
         try:
             page = parse_response_page(decrypt_packet(bytes(encrypted), self._key))
             body = self._assembler.add(page)
@@ -171,19 +161,11 @@ class SolarVaultClient:
             else:
                 LOGGER.debug("Ignored invalid Jackery notification: %s", err)
 
-    async def _async_command(
-        self, action_id: int, message_type: int, body: dict[str, Any]
-    ) -> dict[str, Any]:
+    async def _async_command(self, action_id: int, message_type: int, body: dict[str, Any]) -> dict[str, Any]:
         async with self._command_lock:
-            if (
-                not self.is_connected
-                or self._client is None
-                or self._write_characteristic is None
-            ):
+            if not self.is_connected or self._client is None or self._write_characteristic is None:
                 raise ConnectionError("Jackery device is not connected")
-            future: asyncio.Future[dict[str, Any]] = (
-                asyncio.get_running_loop().create_future()
-            )
+            future: asyncio.Future[dict[str, Any]] = asyncio.get_running_loop().create_future()
             self._pending[action_id] = future
             try:
                 for page in build_command_pages(
@@ -192,16 +174,12 @@ class SolarVaultClient:
                     body=body,
                     key=self._key,
                 ):
-                    await self._client.write_gatt_char(
-                        self._write_characteristic, page, response=False
-                    )
+                    await self._client.write_gatt_char(self._write_characteristic, page, response=False)
                 response = await asyncio.wait_for(future, self._timeout)
             finally:
                 self._pending.pop(action_id, None)
             if response["code"] != 0:
-                error_message = (
-                    f"Jackery rejected action {action_id} with code {response['code']}"
-                )
+                error_message = f"Jackery rejected action {action_id} with code {response['code']}"
                 raise RuntimeError(error_message)
             return response["body"]
 
@@ -219,9 +197,7 @@ class SolarVaultClient:
 
     async def async_set_follow_meter(self, enabled: bool) -> None:
         """Enable or disable smart-meter power following."""
-        await self._async_command(
-            *SET_FOLLOW_METER, {"isFollowMeterPw": int(enabled)}
-        )
+        await self._async_command(*SET_FOLLOW_METER, {"isFollowMeterPw": int(enabled)})
 
     async def async_set_feed_grid_limit(self, power_w: int) -> None:
         """Set the configured grid feed-in ceiling in watts."""
@@ -248,11 +224,7 @@ class SolarVaultClient:
         )
         results = response.get("smart")
         if isinstance(results, list):
-            failed = [
-                item
-                for item in results
-                if isinstance(item, dict) and item.get("code", 0) != 0
-            ]
+            failed = [item for item in results if isinstance(item, dict) and item.get("code", 0) != 0]
             if failed:
                 error_message = f"Smart-meter binding failed: {failed}"
                 raise RuntimeError(error_message)

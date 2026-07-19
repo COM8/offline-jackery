@@ -50,16 +50,9 @@ async def async_setup(hass: HomeAssistant, _config: dict) -> bool:
     async def async_bind_bridge(call: ServiceCall) -> None:
         entry = hass.config_entries.async_get_entry(call.data["config_entry_id"])
         if entry is None or not isinstance(entry.runtime_data, OfflineJackeryData):
-            raise ServiceValidationError(
-                "config_entry_id must identify a loaded Jackery entry"
-            )
+            raise ServiceValidationError("config_entry_id must identify a loaded Jackery entry")
         serial = normalize_serial(call.data[CONF_BRIDGE_SERIAL])
-        configured = any(
-            candidate.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_BRIDGE
-            and candidate.data.get(CONF_BRIDGE_SERIAL) == serial
-            and isinstance(candidate.runtime_data, ShellyBridgeData)
-            for candidate in hass.config_entries.async_entries(DOMAIN)
-        )
+        configured = any(candidate.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_BRIDGE and candidate.data.get(CONF_BRIDGE_SERIAL) == serial and isinstance(candidate.runtime_data, ShellyBridgeData) for candidate in hass.config_entries.async_entries(DOMAIN))
         if not configured:
             message = f"No loaded Shelly bridge has serial {serial}"
             raise ServiceValidationError(message)
@@ -79,9 +72,7 @@ async def async_setup(hass: HomeAssistant, _config: dict) -> bool:
     return True
 
 
-async def async_setup_entry(
-    hass: HomeAssistant, entry: OfflineJackeryConfigEntry
-) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: OfflineJackeryConfigEntry) -> bool:
     """Set up one locally connected Jackery device or Shelly bridge."""
     if entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_BRIDGE:
         bridge = ShellySolarVaultBridge(
@@ -110,9 +101,7 @@ async def async_setup_entry(
     return True
 
 
-async def async_unload_entry(
-    hass: HomeAssistant, entry: OfflineJackeryConfigEntry
-) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: OfflineJackeryConfigEntry) -> bool:
     """Unload platforms, Bluetooth, or the local bridge."""
     if isinstance(entry.runtime_data, ShellyBridgeData):
         await entry.runtime_data.bridge.async_stop()
