@@ -1,5 +1,7 @@
 """Tests for user-facing SolarVault entity metadata."""
 
+from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
+
 from custom_components.offline_jackery.sensor import (
     FIELD_METADATA,
     UNIT_CELSIUS,
@@ -7,7 +9,9 @@ from custom_components.offline_jackery.sensor import (
     UNIT_WATT,
     UNIT_WATT_HOUR,
     friendly_name,
+    numeric_value,
     property_description,
+    sensor_type_for,
 )
 
 
@@ -32,3 +36,28 @@ def test_pv_energy_is_a_cumulative_energy_sensor() -> None:
     assert friendly_name(path) == "PV1 Energy"
     assert property_description(path).startswith("Cumulative energy")
     assert UNIT_WATT_HOUR == "Wh"
+
+
+def test_phase_energy_is_a_cumulative_energy_sensor_with_a_friendly_name() -> None:
+    path = "telemetry.cts.0.aPhaseEgy"
+    assert friendly_name(path) == "Cts1 A Phase Energy"
+    assert sensor_type_for(path, 1234) == (
+        SensorDeviceClass.ENERGY,
+        UNIT_WATT_HOUR,
+        SensorStateClass.TOTAL_INCREASING,
+    )
+
+
+def test_new_numeric_fields_default_to_measurements() -> None:
+    assert sensor_type_for("telemetry.unknownReading", 12.5) == (
+        None,
+        None,
+        SensorStateClass.MEASUREMENT,
+    )
+    assert sensor_type_for("telemetry.unknownLabel", "test") == (None, None, None)
+
+
+def test_numeric_protocol_strings_are_published_as_numbers() -> None:
+    assert numeric_value("123") == 123
+    assert numeric_value("12.5") == 12.5
+    assert numeric_value("not a number") == "not a number"

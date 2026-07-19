@@ -32,6 +32,26 @@ SET_FEED_GRID_LIMIT = (3029, 121)
 SET_FOLLOW_METER = (3044, 121)
 BIND_SMART_METER = (3012, 108)
 UNBIND_SMART_METER = (3013, 109)
+ALREADY_BOUND = -2
+
+
+def binding_failures(results: object, serial: str) -> list[dict[str, Any]]:
+    """Return actual binding failures, treating an existing binding as success."""
+    if not isinstance(results, list):
+        return []
+    failures: list[dict[str, Any]] = []
+    for item in results:
+        if not isinstance(item, dict) or item.get("code", 0) == 0:
+            continue
+        item_serial = item.get("deviceSn")
+        if item.get("code") == ALREADY_BOUND and isinstance(item_serial, str):
+            try:
+                if normalize_serial(item_serial) == serial:
+                    continue
+            except ValueError:
+                pass
+        failures.append(item)
+    return failures
 
 
 def advertised_serial(manufacturer_data: dict[int, bytes]) -> str | None:
@@ -224,11 +244,12 @@ class SolarVaultClient:
             },
         )
         results = response.get("smart")
-        if isinstance(results, list):
-            failed = [item for item in results if isinstance(item, dict) and item.get("code", 0) != 0]
-            if failed:
-                error_message = f"Smart-meter binding failed: {failed}"
-                raise RuntimeError(error_message)
+        failed = binding_failures(results, serial)
+        if failed:
+            error_message = f"Smart-meter binding failed: {failed}"
+            raise RuntimeError(error_message)
+        if isinstance(results, list) and any(isinstance(item, dict) and item.get("code") == ALREADY_BOUND for item in results):
+            LOGGER.info("Smart meter %s was already bound; continuing with meter following", serial)
 
     async def async_unbind_local_p1_meter(self, serial: str) -> None:
         """Unbind one local HomeWizard-compatible meter by serial."""

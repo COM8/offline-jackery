@@ -2,6 +2,7 @@
 
 from custom_components.offline_jackery.bluetooth import (
     advertised_serial,
+    binding_failures,
     serial_matches,
 )
 
@@ -19,3 +20,12 @@ def test_serial_match_is_exact_or_name_fallback() -> None:
     assert serial_matches("SV123", "sv123", None)
     assert serial_matches("SV123", None, "Jackery-SV123")
     assert not serial_matches("SV123", "SV1234", "Jackery")
+
+
+def test_existing_smart_meter_binding_is_idempotent() -> None:
+    assert binding_failures([{"deviceSn": "CCCF653ED203", "code": -2}], "CCCF653ED203") == []
+
+
+def test_other_smart_meter_binding_errors_are_reported() -> None:
+    result = [{"deviceSn": "CCCF653ED203", "code": -3}]
+    assert binding_failures(result, "CCCF653ED203") == result

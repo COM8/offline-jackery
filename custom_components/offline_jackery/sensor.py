@@ -23,6 +23,10 @@ UNIT_CELSIUS = "°C"
 UNIT_WATT = "W"
 UNIT_WATT_HOUR = "Wh"
 UNIT_DBM = "dBm"
+UNIT_VOLT = "V"
+UNIT_AMPERE = "A"
+UNIT_HERTZ = "Hz"
+NUMERIC_STRING = re.compile(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?")
 POWER_KEYS = {
     "batInPw",
     "batOutPw",
@@ -78,12 +82,107 @@ ICON_BY_KEY = {
 }
 
 
-def icon_for_path(path: str) -> str:
+def _is_energy_key(key: str) -> bool:
+    """Return whether a field is an accumulated-energy counter."""
+    normalized = key.lower()
+    return normalized in ENERGY_KEYS or normalized.endswith(("egy", "energy"))
+
+
+def _is_power_key(key: str) -> bool:
+    """Return whether a field is an instantaneous power reading."""
+    normalized = key.lower()
+    return key in POWER_KEYS or normalized.endswith(("pw", "power"))
+
+
+def numeric_value(value: object | None) -> str | int | float | bool | None:
+    """Convert a device's numeric-string field to a Home Assistant number."""
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return value
+    if not isinstance(value, str):
+        return value
+    text = value.strip()
+    if not NUMERIC_STRING.fullmatch(text):
+        return value
+    return float(text) if any(marker in text.lower() for marker in (".", "e")) else int(text)
+
+
+def sensor_type_for(path: str, value: object | None = None) -> tuple[SensorDeviceClass | None, str | None, SensorStateClass | None]:
+    """Classify a protocol field for Home Assistant statistics and display."""
+    value = numeric_value(value)
+    key = path.rsplit(".", 1)[-1]
+    normalized = key.lower()
+    device_class: SensorDeviceClass | None = None
+    unit: str | None = None
+    state_class: SensorStateClass | None = None
+    if _is_energy_key(key):
+        device_class, unit, state_class = (
+            SensorDeviceClass.ENERGY,
+            UNIT_WATT_HOUR,
+            SensorStateClass.TOTAL_INCREASING,
+        )
+    elif _is_power_key(key):
+        device_class, unit, state_class = (
+            SensorDeviceClass.POWER,
+            UNIT_WATT,
+            SensorStateClass.MEASUREMENT,
+        )
+    elif key in PERCENT_KEYS:
+        unit, state_class = PERCENTAGE, SensorStateClass.MEASUREMENT
+    elif key in TEMPERATURE_KEYS or normalized.endswith("temp"):
+        device_class, unit, state_class = (
+            SensorDeviceClass.TEMPERATURE,
+            UNIT_CELSIUS,
+            SensorStateClass.MEASUREMENT,
+        )
+    elif key in SIGNAL_KEYS:
+        device_class, unit, state_class = (
+            SensorDeviceClass.SIGNAL_STRENGTH,
+            UNIT_DBM,
+            SensorStateClass.MEASUREMENT,
+        )
+    elif normalized.endswith(("vol", "volt", "voltage")):
+        device_class, unit, state_class = (
+            SensorDeviceClass.VOLTAGE,
+            UNIT_VOLT,
+            SensorStateClass.MEASUREMENT,
+        )
+    elif normalized.endswith(("cur", "current", "amp", "ampere")):
+        device_class, unit, state_class = (
+            SensorDeviceClass.CURRENT,
+            UNIT_AMPERE,
+            SensorStateClass.MEASUREMENT,
+        )
+    elif normalized.endswith(("freq", "frequency", "hz")):
+        device_class, unit, state_class = (
+            SensorDeviceClass.FREQUENCY,
+            UNIT_HERTZ,
+            SensorStateClass.MEASUREMENT,
+        )
+    elif isinstance(value, (int, float)) and not isinstance(value, bool):
+        # Newly discovered numeric protocol fields are measurements by default.
+        # This keeps them numeric/statistical instead of treating every update as
+        # an untyped state, while named counters above retain their total class.
+        state_class = SensorStateClass.MEASUREMENT
+    return device_class, unit, state_class
+
+
+def icon_for_path(path: str, value: object | None = None) -> str:
     """Return an icon appropriate for a protocol field."""
     key = path.rsplit(".", 1)[-1].lower()
-    if key in ENERGY_KEYS:
-        return "mdi:solar-power" if ".pv." in path.lower() else "mdi:counter"
-    return ICON_BY_KEY.get(key, "mdi:information-outline")
+    numeric = numeric_value(value)
+    icon = ICON_BY_KEY.get(
+        key,
+        "mdi:chart-line" if isinstance(numeric, (int, float)) and not isinstance(numeric, bool) else "mdi:information-outline",
+    )
+    if _is_energy_key(key):
+        icon = "mdi:solar-power" if ".pv." in path.lower() else "mdi:counter"
+    elif key not in ICON_BY_KEY and _is_power_key(key):
+        icon = "mdi:flash"
+    elif key.endswith(("vol", "volt", "voltage", "freq", "frequency", "hz")):
+        icon = "mdi:sine-wave"
+    elif key.endswith(("cur", "current", "amp", "ampere")):
+        icon = "mdi:current-ac"
+    return icon
 
 
 # Names used by the Jackery app and the decompiled HomeBody/SystemBody models.
@@ -131,7 +230,7 @@ def friendly_name(path: str) -> str:
     parts = path.split(".")
     key = parts[-1]
     words = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", key).replace("Pw", " power")
-    words = "energy" if key.lower() in ENERGY_KEYS else words.replace("Soc", "state of charge").replace("Pv", "PV").strip()
+    words = re.sub(r"(?i)(egy|energy)$", "Energy", words).strip() if _is_energy_key(key) else words.replace("Soc", "state of charge").replace("Pv", "PV").strip()
     prefix = " / ".join("PV" if part.lower() == "pv" else part.title() for part in parts[1:-1] if not part.isdigit())
     index = next((str(int(part) + 1) for part in parts if part.isdigit()), "")
     name = words[0].upper() + words[1:] if words else key
@@ -145,7 +244,7 @@ def property_description(path: str) -> str:
     if metadata:
         return metadata[1]
     key = path.rsplit(".", 1)[-1]
-    if key.lower() in ENERGY_KEYS:
+    if _is_energy_key(key):
         return "Cumulative energy reported by this SolarVault input. The value is recorded as an increasing energy total in watt-hours."
     known = {}
     return known.get(key, f"Read-only `{path}` value reported by the Jackery BLE interface.")
@@ -179,33 +278,18 @@ class OfflineJackerySensor(OfflineJackeryEntity, SensorEntity):
         super().__init__(coordinator)
         self.path = path
         self._attr_name = friendly_name(path)
-        self._attr_icon = icon_for_path(path)
+        value = numeric_value(nested_value(coordinator.data, path))
+        self._attr_icon = icon_for_path(path, value)
         self._set_unique_id(path.replace(".", "_"))
-        key = path.rsplit(".", 1)[-1]
-        if key.lower() in ENERGY_KEYS:
-            self._attr_device_class = SensorDeviceClass.ENERGY
-            self._attr_native_unit_of_measurement = UNIT_WATT_HOUR
-            self._attr_state_class = SensorStateClass.TOTAL_INCREASING
-        elif key in POWER_KEYS:
-            self._attr_device_class = SensorDeviceClass.POWER
-            self._attr_native_unit_of_measurement = UNIT_WATT
-            self._attr_state_class = SensorStateClass.MEASUREMENT
-        elif key in PERCENT_KEYS:
-            self._attr_native_unit_of_measurement = PERCENTAGE
-            self._attr_state_class = SensorStateClass.MEASUREMENT
-        elif key in TEMPERATURE_KEYS:
-            self._attr_device_class = SensorDeviceClass.TEMPERATURE
-            self._attr_native_unit_of_measurement = UNIT_CELSIUS
-            self._attr_state_class = SensorStateClass.MEASUREMENT
-        elif key in SIGNAL_KEYS:
-            self._attr_device_class = SensorDeviceClass.SIGNAL_STRENGTH
-            self._attr_native_unit_of_measurement = UNIT_DBM
-            self._attr_state_class = SensorStateClass.MEASUREMENT
+        device_class, unit, state_class = sensor_type_for(path, value)
+        self._attr_device_class = device_class
+        self._attr_native_unit_of_measurement = unit
+        self._attr_state_class = state_class
 
     @property
     def native_value(self) -> str | int | float | bool | None:
         """Return the latest value for this protocol path."""
-        return nested_value(self.coordinator.data, self.path)
+        return numeric_value(nested_value(self.coordinator.data, self.path))
 
     @property
     def extra_state_attributes(self) -> dict[str, str]:

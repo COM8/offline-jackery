@@ -14,3 +14,4 @@ def test_sensor_icons_match_the_measurement_domain() -> None:
 
 def test_unknown_dynamic_sensor_still_has_a_generic_icon() -> None:
     assert icon_for_path("telemetry.pv.0.commState") == "mdi:information-outline"
+    assert icon_for_path("telemetry.unknownReading", "12.5") == "mdi:chart-line"

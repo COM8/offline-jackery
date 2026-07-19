@@ -8,7 +8,7 @@ from datetime import timedelta
 from typing import Any
 
 from bleak.exc import BleakError
-from homeassistant.components import bluetooth
+from homeassistant.components import bluetooth, logbook
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -72,6 +72,9 @@ class OfflineJackeryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
         self._key = decode_bluetooth_key(bluetooth_key)
         self._client: SolarVaultClient | None = None
         self._backoff = ExponentialBackoff()
+        self._connection_active: bool | None = None
+        self._ever_connected = False
+        self._shutting_down = False
 
     @property
     def connected(self) -> bool:
@@ -84,6 +87,20 @@ class OfflineJackeryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
             "Jackery device %s disconnected; reconnect will be scheduled",
             self.address,
         )
+        if not self._shutting_down:
+            self._record_connection(False)
+
+    def _record_connection(self, connected: bool) -> None:
+        """Write one activity entry per Bluetooth state transition."""
+        if self._connection_active is connected:
+            return
+        self._connection_active = connected
+        if connected:
+            message = "Bluetooth reconnected." if self._ever_connected else "Bluetooth connected."
+            self._ever_connected = True
+        else:
+            message = "Bluetooth connection failed; reconnect will be attempted."
+        logbook.async_log_entry(self.hass, "Offline Jackery", message, domain=DOMAIN)
 
     async def _async_connect(self) -> SolarVaultClient:
         """Resolve the best HA adapter/proxy and create a fresh Bleak client."""
@@ -97,6 +114,7 @@ class OfflineJackeryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
         )
         await client.async_connect()
         self._client = client
+        self._record_connection(True)
         return client
 
     async def _async_update_data(self) -> dict[str, Any]:
@@ -116,6 +134,7 @@ class OfflineJackeryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
             RuntimeError,
             ProtocolError,
         ) as err:
+            self._record_connection(False)
             if self._client is not None:
                 await self._client.async_disconnect()
                 self._client = None
@@ -216,6 +235,7 @@ class OfflineJackeryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
 
     async def async_shutdown(self) -> None:
         """Release the GATT connection during unload."""
+        self._shutting_down = True
         if self._client is not None:
             await self._client.async_disconnect()
             self._client = None

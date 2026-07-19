@@ -1,8 +1,10 @@
 """Manual refresh action for Offline Jackery."""
 
+from homeassistant.components import logbook
 from homeassistant.components.button import ButtonDeviceClass, ButtonEntity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from .const import DOMAIN
 from .data import OfflineJackeryConfigEntry
 from .entity import OfflineJackeryEntity
 
@@ -29,6 +31,13 @@ class OfflineJackeryRefreshButton(OfflineJackeryEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         """Bypass reconnect backoff and request status now."""
+        logbook.async_log_entry(
+            self.hass,
+            "Offline Jackery",
+            "Manual status refresh requested.",
+            domain=DOMAIN,
+            entity_id=self.entity_id,
+        )
         await self.coordinator.async_force_refresh()
 
     @property
