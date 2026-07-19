@@ -21,6 +21,7 @@ class OfflineJackeryRefreshButton(OfflineJackeryEntity, ButtonEntity):
 
     _attr_name = "Refresh status"
     _attr_device_class = ButtonDeviceClass.UPDATE
+    _attr_icon = "mdi:refresh"
 
     def __init__(self, coordinator: object) -> None:
         super().__init__(coordinator)
@@ -29,3 +30,8 @@ class OfflineJackeryRefreshButton(OfflineJackeryEntity, ButtonEntity):
     async def async_press(self) -> None:
         """Bypass reconnect backoff and request status now."""
         await self.coordinator.async_force_refresh()
+
+    @property
+    def extra_state_attributes(self) -> dict[str, str]:
+        """Explain what an immediate refresh does."""
+        return {"description": "Requests an immediate Bluetooth status update from the SolarVault."}

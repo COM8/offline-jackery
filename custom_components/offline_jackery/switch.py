@@ -24,14 +24,14 @@ async def async_setup_entry(
             OfflineJackerySwitch(
                 coordinator,
                 key="eps_output",
-                name="Off-grid / EPS output",
+                name="Emergency backup output",
                 path="telemetry.swEps",
                 setter=coordinator.async_set_eps,
             ),
             OfflineJackerySwitch(
                 coordinator,
                 key="smart_meter_following",
-                name="Smart-meter power following",
+                name="Follow smart meter",
                 path="system.isFollowMeterPw",
                 setter=coordinator.async_set_follow_meter,
             ),
@@ -53,6 +53,10 @@ class OfflineJackerySwitch(OfflineJackeryEntity, SwitchEntity):
     ) -> None:
         super().__init__(coordinator)
         self._attr_name = name
+        self._attr_icon = {
+            "telemetry.swEps": "mdi:power",
+            "system.isFollowMeterPw": "mdi:transmission-tower",
+        }[path]
         self._set_unique_id(key)
         self._path = path
         self._setter = setter
@@ -75,7 +79,7 @@ class OfflineJackerySwitch(OfflineJackeryEntity, SwitchEntity):
     def extra_state_attributes(self) -> dict[str, str]:
         """Describe the safety-sensitive writable property."""
         descriptions = {
-            "telemetry.swEps": ("Controls the SolarVault Off-grid/EPS output. This can affect attached equipment."),
-            "system.isFollowMeterPw": ("Controls whether SolarVault output follows its configured smart meter."),
+            "telemetry.swEps": ("Turns the SolarVault emergency backup (EPS) output on or off. This can affect connected equipment."),
+            "system.isFollowMeterPw": ("Allows the SolarVault to adjust its output using the configured smart meter."),
         }
         return {"protocol_field": self._path, "description": descriptions[self._path]}

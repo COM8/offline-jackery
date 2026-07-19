@@ -22,7 +22,7 @@ async def async_setup_entry(
 class OfflineJackeryFeedGridLimit(OfflineJackeryEntity, NumberEntity):
     """Maximum grid feed-in power accepted by the SolarVault."""
 
-    _attr_name = "Maximum grid feed-in power"
+    _attr_name = "Grid export limit"
     _attr_icon = "mdi:transmission-tower-export"
     _attr_native_min_value = 0
     _attr_native_step = 10
@@ -54,5 +54,5 @@ class OfflineJackeryFeedGridLimit(OfflineJackeryEntity, NumberEntity):
         """Describe what the grid limit does and does not control."""
         return {
             "protocol_field": "system.maxFeedGrid",
-            "description": ("Grid export ceiling in watts. Actual export also depends on PV, battery, household load, meter following, and firmware limits."),
+            "description": ("Maximum power allowed to flow from the SolarVault to the public grid. Actual export also depends on solar production, battery state, household load, meter following, and firmware limits."),
         }

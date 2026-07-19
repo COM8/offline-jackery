@@ -42,6 +42,7 @@ class OfflineJackeryConnectivity(OfflineJackeryEntity, BinarySensorEntity):
 
     _attr_name = "Bluetooth connection"
     _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
+    _attr_icon = "mdi:bluetooth-connect"
 
     def __init__(self, coordinator: object) -> None:
         super().__init__(coordinator)
@@ -57,6 +58,11 @@ class OfflineJackeryConnectivity(OfflineJackeryEntity, BinarySensorEntity):
         """Return whether a GATT connection is active."""
         return self.coordinator.connected
 
+    @property
+    def extra_state_attributes(self) -> dict[str, str]:
+        """Explain the connectivity state."""
+        return {"description": "Shows whether Home Assistant currently has an active Bluetooth connection to the SolarVault."}
+
 
 class OfflineJackeryBooleanSensor(OfflineJackeryEntity, BinarySensorEntity):
     """One read-only Boolean returned by the BLE interface."""
@@ -65,6 +71,7 @@ class OfflineJackeryBooleanSensor(OfflineJackeryEntity, BinarySensorEntity):
         super().__init__(coordinator)
         self.path = path
         self._attr_name = friendly_name(path)
+        self._attr_icon = "mdi:toggle-switch-outline"
         self._set_unique_id(path.replace(".", "_"))
 
     @property
