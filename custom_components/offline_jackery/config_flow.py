@@ -44,6 +44,7 @@ CONF_SHELLY_HOST = "shelly_host"
 CONF_BRIDGE_SERIAL = "bridge_serial"
 CONF_BRIDGE_PORT = "bridge_port"
 CONF_ADVERTISE_ADDRESS = "advertise_address"
+CONF_SHELLY_AUTH = "shelly_authentication"
 CONF_SHELLY_USERNAME = "shelly_username"
 CONF_SHELLY_PASSWORD = "shelly_password"  # noqa: S105
 CONF_INVERT_POWER = "invert_power"
@@ -82,7 +83,10 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
         """Choose a locally controlled Jackery or a meter bridge."""
         del user_input
-        return self.async_show_menu(step_id="user", menu_options=["jackery", "shelly_bridge"])
+        return self.async_show_menu(
+            step_id="user",
+            menu_options={"jackery": "Jackery SolarVault", "shelly_bridge": "Local Shelly Pro 3EM <-> HomeWizard P1 bridge"},
+        )
 
     async def async_step_jackery(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
         """Authenticate without persisting the account credentials."""
@@ -150,7 +154,7 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     port=port,
                     advertise_address=user_input[CONF_ADVERTISE_ADDRESS],
                     username=user_input[CONF_SHELLY_USERNAME],
-                    password=user_input.get(CONF_SHELLY_PASSWORD, ""),
+                    password=(user_input.get(CONF_SHELLY_PASSWORD, "") if user_input[CONF_SHELLY_AUTH] else ""),
                     invert_power=user_input[CONF_INVERT_POWER],
                 )
                 reading = await bridge.async_read_shelly()
@@ -193,6 +197,7 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                         )
                     ),
                     vol.Required(CONF_ADVERTISE_ADDRESS): selector.TextSelector(),
+                    vol.Required(CONF_SHELLY_AUTH, default=False): selector.BooleanSelector(),
                     vol.Required(CONF_SHELLY_USERNAME, default="admin"): selector.TextSelector(),
                     vol.Optional(CONF_SHELLY_PASSWORD): selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)),
                     vol.Required(CONF_INVERT_POWER, default=False): selector.BooleanSelector(),

@@ -6,7 +6,11 @@
         "title": "Choose what to add",
         "menu_options": {
           "jackery": "Jackery SolarVault",
-          "shelly_bridge": "Shelly Pro 3EM local P1 bridge"
+          "shelly_bridge": "Local Shelly Pro 3EM <-> HomeWizard P1 bridge"
+        },
+        "menu_option_descriptions": {
+          "jackery": "Connect directly to a SolarVault over Bluetooth.",
+          "shelly_bridge": "Expose local Shelly power readings as a HomeWizard P1 meter for a SolarVault."
         }
       },
       "jackery": {
@@ -17,6 +21,12 @@
           "account": "Email address or phone number",
           "password": "Password",
           "region": "Account region e.g. DE or US (email only)"
+        },
+        "data_description": {
+          "login_method": "Choose the same login method used in the Jackery app.",
+          "account": "Enter the email address or telephone number of your Jackery account.",
+          "password": "Used during setup to retrieve the Bluetooth key. It is not saved.",
+          "region": "Required only for email login. Use the two-letter country code configured in the Jackery app, such as DE or US."
         }
       },
       "shelly_bridge": {
@@ -27,21 +37,40 @@
           "bridge_serial": "Virtual meter serial (12 hexadecimal digits)",
           "bridge_port": "Local HTTP port",
           "advertise_address": "Home Assistant LAN IPv4 address",
+          "shelly_authentication": "Shelly requires authentication",
           "shelly_username": "Shelly username",
-          "shelly_password": "Shelly password (optional)",
+          "shelly_password": "Shelly password",
           "invert_power": "Invert import/export power sign"
+        },
+        "data_description": {
+          "shelly_host": "The Shelly's local address, for example 192.168.1.50 or http://shellypro3em.local. Cloud URLs are not supported.",
+          "bridge_serial": "A stable virtual HomeWizard identity. Keep the generated value unless it conflicts with another bridge.",
+          "bridge_port": "The TCP port served by Home Assistant. Every bridge on this Home Assistant host needs a different port.",
+          "advertise_address": "The LAN IPv4 address of the Home Assistant machine, not the Shelly address. The SolarVault must be able to reach it.",
+          "shelly_authentication": "Leave disabled for a passwordless Shelly. Enable it only if local web/RPC authentication is configured on the Shelly.",
+          "shelly_username": "Used only when authentication is enabled. Shelly Gen2 devices normally use admin.",
+          "shelly_password": "Used only when authentication is enabled. It will be stored in Home Assistant's config-entry storage.",
+          "invert_power": "Enable if imported grid power appears negative instead of positive. CT clamp orientation is preferably corrected at the meter."
         }
       },
       "system": {
         "title": "Choose a Jackery device",
         "description": "Select the system to control locally.",
-        "data": {"serial_number": "Device"}
+        "data": {
+          "serial_number": "Device"
+        },
+        "data_description": {
+          "serial_number": "Choose the SolarVault whose Bluetooth key and local controls should be added."
+        }
       },
       "bluetooth": {
         "title": "Choose the matching Bluetooth device",
         "description": "Only Jackery advertisements matching serial **{serial}** are selectable.\n\nOther Jackery devices found:\n{other_jackery}\n\nOther BLE devices found: {other_ble_count}. They are hidden because they cannot be selected safely.",
         "data": {
           "address": "Matching Jackery device"
+        },
+        "data_description": {
+          "address": "Select the nearby Bluetooth advertisement matching the SolarVault serial shown above."
         }
       },
       "bluetooth_empty": {
@@ -87,7 +116,10 @@
   },
   "selector": {
     "login_method": {
-      "options": {"email": "Email", "phone": "Phone"}
+      "options": {
+        "email": "Email",
+        "phone": "Phone"
+      }
     }
   }
 }

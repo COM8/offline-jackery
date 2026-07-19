@@ -24,6 +24,7 @@ from .config_flow import (
     CONF_BRIDGE_SERIAL,
     CONF_ENTRY_TYPE,
     CONF_INVERT_POWER,
+    CONF_SHELLY_AUTH,
     CONF_SHELLY_HOST,
     CONF_SHELLY_PASSWORD,
     CONF_SHELLY_USERNAME,
@@ -82,7 +83,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: OfflineJackeryConfigEntr
             port=entry.data[CONF_BRIDGE_PORT],
             advertise_address=entry.data[CONF_ADVERTISE_ADDRESS],
             username=entry.data.get(CONF_SHELLY_USERNAME, "admin"),
-            password=entry.data.get(CONF_SHELLY_PASSWORD, ""),
+            password=(
+                entry.data.get(CONF_SHELLY_PASSWORD, "")
+                if entry.data.get(
+                    CONF_SHELLY_AUTH,
+                    bool(entry.data.get(CONF_SHELLY_PASSWORD)),
+                )
+                else ""
+            ),
             invert_power=entry.data.get(CONF_INVERT_POWER, False),
         )
         await bridge.async_start()
