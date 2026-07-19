@@ -43,7 +43,7 @@
           "invert_power": "Invert import/export power sign"
         },
         "data_description": {
-          "shelly_host": "The Shelly's local address, for example 192.168.1.50 or http://shellypro3em.local. Cloud URLs are not supported.",
+          "shelly_host": "The Shelly's local address, for example 192.168.1.50 or {local_url}. Cloud URLs are not supported.",
           "bridge_serial": "A stable virtual HomeWizard identity. Keep the generated value unless it conflicts with another bridge.",
           "bridge_port": "The TCP port served by Home Assistant. Every bridge on this Home Assistant host needs a different port.",
           "advertise_address": "The LAN IPv4 address of the Home Assistant machine, not the Shelly address. The SolarVault must be able to reach it.",

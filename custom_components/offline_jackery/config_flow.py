@@ -204,6 +204,7 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 }
             ),
             errors=errors,
+            description_placeholders={"local_url": "http://shellypro3em.local"},
         )
 
     async def async_step_system(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:

@@ -7,6 +7,7 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ServiceValidationError
+from homeassistant.helpers import config_validation as cv
 
 # Home Assistant imports custom integration modules before setup in the import
 # executor. Import the always-used platforms here so forwarding entry setups does
@@ -46,6 +47,7 @@ PLATFORMS = [
 ]
 
 SERVICE_BIND_BRIDGE = "bind_shelly_bridge"
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, _config: dict) -> bool:
