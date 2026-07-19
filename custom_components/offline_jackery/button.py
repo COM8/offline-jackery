@@ -13,7 +13,6 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the immediate local refresh action."""
-
     async_add_entities([OfflineJackeryRefreshButton(entry.runtime_data.coordinator)])
 
 
@@ -29,5 +28,4 @@ class OfflineJackeryRefreshButton(OfflineJackeryEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         """Bypass reconnect backoff and request status now."""
-
         await self.coordinator.async_force_refresh()

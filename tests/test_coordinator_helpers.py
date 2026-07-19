@@ -1,6 +1,9 @@
 """Pure tests for reconnect scheduling and telemetry flattening."""
 
-from custom_components.offline_jackery.coordinator import ExponentialBackoff, scalar_values
+from custom_components.offline_jackery.coordinator import (
+    ExponentialBackoff,
+    scalar_values,
+)
 
 
 def test_binary_exponential_backoff_caps_at_64_seconds() -> None:

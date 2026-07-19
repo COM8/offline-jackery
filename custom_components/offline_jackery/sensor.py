@@ -49,7 +49,6 @@ TEMPERATURE_KEYS = {"cellTemp"}
 
 def friendly_name(path: str) -> str:
     """Turn a protocol path into a stable, readable entity name."""
-
     parts = path.split(".")
     key = parts[-1]
     words = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", key).replace("Pw", " power")
@@ -62,7 +61,6 @@ def friendly_name(path: str) -> str:
 
 def property_description(path: str) -> str:
     """Provide a clear source description for diagnostics and users."""
-
     key = path.rsplit(".", 1)[-1]
     known = {
         "batSoc": "Battery state of charge reported by the SolarVault.",
@@ -89,7 +87,6 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Add sensors now and whenever a later snapshot introduces properties."""
-
     coordinator = entry.runtime_data.coordinator
     known: set[str] = set()
 
@@ -135,13 +132,11 @@ class OfflineJackerySensor(OfflineJackeryEntity, SensorEntity):
     @property
     def native_value(self) -> str | int | float | bool | None:
         """Return the latest value for this protocol path."""
-
         return nested_value(self.coordinator.data, self.path)
 
     @property
     def extra_state_attributes(self) -> dict[str, str]:
         """Explain the raw source and meaning of the property."""
-
         return {
             "protocol_field": self.path,
             "description": property_description(self.path),

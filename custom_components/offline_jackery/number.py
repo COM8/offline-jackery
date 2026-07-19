@@ -16,7 +16,6 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the verified feed-in ceiling control."""
-
     async_add_entities([OfflineJackeryFeedGridLimit(entry.runtime_data.coordinator)])
 
 
@@ -37,26 +36,22 @@ class OfflineJackeryFeedGridLimit(OfflineJackeryEntity, NumberEntity):
     @property
     def native_value(self) -> float | None:
         """Return the confirmed configured ceiling."""
-
         value = nested_value(self.coordinator.data, "system.maxFeedGrid")
         return float(value) if isinstance(value, (int, float)) else None
 
     @property
     def native_max_value(self) -> float:
         """Use the maximum output reported by this device."""
-
         value = nested_value(self.coordinator.data, "system.maxSysOutPw")
         return float(value) if isinstance(value, (int, float)) and value > 0 else 0
 
     async def async_set_native_value(self, value: float) -> None:
         """Set a validated feed-in ceiling."""
-
         await self.coordinator.async_set_feed_grid_limit(int(value))
 
     @property
     def extra_state_attributes(self) -> dict[str, str]:
         """Describe what the grid limit does and does not control."""
-
         return {
             "protocol_field": "system.maxFeedGrid",
             "description": (

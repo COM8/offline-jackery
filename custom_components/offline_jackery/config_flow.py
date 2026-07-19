@@ -27,7 +27,7 @@ from .bridge import (
     normalize_serial,
 )
 from .const import DOMAIN, LOGGER
-from .protocol import JACKERY_SERVICE_UUID, ProtocolError, decode_bluetooth_key
+from .protocol import ProtocolError, decode_bluetooth_key
 
 CONF_ADDRESS = "address"
 CONF_BLUETOOTH_KEY = "bluetooth_key"
@@ -45,8 +45,12 @@ CONF_BRIDGE_SERIAL = "bridge_serial"
 CONF_BRIDGE_PORT = "bridge_port"
 CONF_ADVERTISE_ADDRESS = "advertise_address"
 CONF_SHELLY_USERNAME = "shelly_username"
-CONF_SHELLY_PASSWORD = "shelly_password"
+CONF_SHELLY_PASSWORD = "shelly_password"  # noqa: S105
 CONF_INVERT_POWER = "invert_power"
+REGION_CODE_LENGTH = 2
+BRIDGE_PORT_MINIMUM = 1
+BRIDGE_PORT_MAXIMUM = 65535
+SOLARVAULT_MODEL_CODE = 3001
 
 VALIDATION_EXCEPTIONS = (
     BleakError,
@@ -55,6 +59,12 @@ VALIDATION_EXCEPTIONS = (
     RuntimeError,
     ProtocolError,
 )
+
+
+def _validate_bridge_port(port: int) -> None:
+    """Validate the local bridge listener port."""
+    if not BRIDGE_PORT_MINIMUM <= port <= BRIDGE_PORT_MAXIMUM:
+        raise ValueError("port")
 
 
 class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
@@ -73,7 +83,6 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Choose a locally controlled Jackery or a meter bridge."""
-
         del user_input
         return self.async_show_menu(
             step_id="user", menu_options=["jackery", "shelly_bridge"]
@@ -83,13 +92,12 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Authenticate without persisting the account credentials."""
-
         errors: dict[str, str] = {}
         if user_input is not None:
             method = user_input[CONF_LOGIN_METHOD]
             account = user_input[CONF_ACCOUNT].strip()
             region = user_input.get(CONF_REGION, "").strip().upper()
-            if method == "email" and len(region) != 2:
+            if method == "email" and len(region) != REGION_CODE_LENGTH:
                 errors[CONF_REGION] = "invalid_region"
             else:
                 self._cloud = JackeryCloudClient(async_get_clientsession(self.hass))
@@ -142,15 +150,13 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Validate and create one independent Shelly bridge entry."""
-
         errors: dict[str, str] = {}
         suggested_serial = secrets.token_hex(6).upper()
         if user_input is not None:
             try:
                 serial = normalize_serial(user_input[CONF_BRIDGE_SERIAL])
                 port = int(user_input[CONF_BRIDGE_PORT])
-                if not 1 <= port <= 65535:
-                    raise ValueError("port")
+                _validate_bridge_port(port)
                 bridge = ShellySolarVaultBridge(
                     self.hass,
                     host=user_input[CONF_SHELLY_HOST],
@@ -205,7 +211,7 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     ): selector.NumberSelector(
                         selector.NumberSelectorConfig(
                             min=1,
-                            max=65535,
+                            max=BRIDGE_PORT_MAXIMUM,
                             mode=selector.NumberSelectorMode.BOX,
                         )
                     ),
@@ -230,11 +236,11 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Select one account system and obtain its Bluetooth key."""
-
         errors: dict[str, str] = {}
         if user_input is not None:
             self._system = self._systems[user_input[CONF_SERIAL_NUMBER]]
-            assert self._cloud is not None
+            if self._cloud is None:
+                raise RuntimeError("Jackery cloud client is not initialized")
             try:
                 self._key = await self._cloud.async_bluetooth_key(self._system)
                 decode_bluetooth_key(self._key)
@@ -250,7 +256,11 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             selector.SelectOptionDict(
                 value=serial,
                 label=f"{system.name} — {serial}"
-                + (" — SolarVault 3 Pro" if system.model_code == 3001 else ""),
+                + (
+                    " — SolarVault 3 Pro"
+                    if system.model_code == SOLARVAULT_MODEL_CODE
+                    else ""
+                ),
             )
             for serial, system in self._systems.items()
         ]
@@ -270,8 +280,8 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Actively scan and allow only a serial-matching Jackery device."""
-
-        assert self._system is not None
+        if self._system is None:
+            return self.async_abort(reason="invalid_state")
         errors: dict[str, str] = {}
         if bluetooth.async_scanner_count(self.hass, connectable=True) == 0:
             return self.async_abort(reason="no_bluetooth_adapter")
@@ -342,7 +352,6 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Route menu choices when no matching Bluetooth device was visible."""
-
         del user_input
         return await self.async_step_bluetooth()
 
@@ -350,7 +359,6 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Connect with the key and read the first complete status snapshot."""
-
         del user_input
         device = bluetooth.async_ble_device_from_address(
             self.hass, self._address, connectable=True
@@ -385,7 +393,6 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self, *, reason: str, details: str
     ) -> config_entries.ConfigFlowResult:
         """Show actionable retry choices after connect or read validation fails."""
-
         return self.async_show_menu(
             step_id="validate",
             menu_options=["validate", "bluetooth"],
@@ -399,8 +406,8 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Show validation success and create the entry on Add."""
-
-        assert self._system is not None
+        if self._system is None:
+            return self.async_abort(reason="invalid_state")
         del user_input
         return self.async_show_menu(
             step_id="confirm",
@@ -412,8 +419,8 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Create the config entry after the user confirms the validated device."""
-
-        assert self._system is not None
+        if self._system is None:
+            return self.async_abort(reason="invalid_state")
         del user_input
         return self.async_create_entry(
             title=self._system.name,

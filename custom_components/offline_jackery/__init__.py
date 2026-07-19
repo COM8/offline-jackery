@@ -7,6 +7,14 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ServiceValidationError
 
+# Home Assistant imports custom integration modules before setup in the import
+# executor. Import the always-used platforms here so forwarding entry setups does
+# not need to load platform modules from disk inside the event loop.
+from . import binary_sensor as _binary_sensor  # noqa: F401
+from . import button as _button  # noqa: F401
+from . import number as _number  # noqa: F401
+from . import sensor as _sensor  # noqa: F401
+from . import switch as _switch  # noqa: F401
 from .bridge import ShellySolarVaultBridge, normalize_serial
 from .config_flow import (
     CONF_ADDRESS,
@@ -24,15 +32,6 @@ from .config_flow import (
 from .const import DOMAIN
 from .coordinator import OfflineJackeryDataUpdateCoordinator
 from .data import OfflineJackeryConfigEntry, OfflineJackeryData, ShellyBridgeData
-
-# Home Assistant imports custom integration modules before setup in the import
-# executor. Import the always-used platforms here so forwarding entry setups does
-# not need to load platform modules from disk inside the event loop.
-from . import binary_sensor as _binary_sensor  # noqa: F401, E402
-from . import button as _button  # noqa: F401, E402
-from . import number as _number  # noqa: F401, E402
-from . import sensor as _sensor  # noqa: F401, E402
-from . import switch as _switch  # noqa: F401, E402
 
 PLATFORMS = [
     Platform.SENSOR,
@@ -62,9 +61,8 @@ async def async_setup(hass: HomeAssistant, _config: dict) -> bool:
             for candidate in hass.config_entries.async_entries(DOMAIN)
         )
         if not configured:
-            raise ServiceValidationError(
-                f"No loaded Shelly bridge has serial {serial}"
-            )
+            message = f"No loaded Shelly bridge has serial {serial}"
+            raise ServiceValidationError(message)
         await entry.runtime_data.coordinator.async_bind_local_p1_meter(serial)
 
     hass.services.async_register(
@@ -85,7 +83,6 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: OfflineJackeryConfigEntry
 ) -> bool:
     """Set up one locally connected Jackery device or Shelly bridge."""
-
     if entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_BRIDGE:
         bridge = ShellySolarVaultBridge(
             hass,
@@ -117,7 +114,6 @@ async def async_unload_entry(
     hass: HomeAssistant, entry: OfflineJackeryConfigEntry
 ) -> bool:
     """Unload platforms, Bluetooth, or the local bridge."""
-
     if isinstance(entry.runtime_data, ShellyBridgeData):
         await entry.runtime_data.bridge.async_stop()
         return True

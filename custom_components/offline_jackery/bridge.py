@@ -20,6 +20,7 @@ from .const import LOGGER
 SERVICE_TYPE = "_hwenergy._tcp.local."
 POLL_SECONDS = 1.0
 STALE_SECONDS = 5.0
+SERIAL_LENGTH = 12
 
 
 class BridgeError(RuntimeError):
@@ -28,16 +29,16 @@ class BridgeError(RuntimeError):
 
 def normalize_serial(value: str) -> str:
     """Return the canonical HomeWizard serial used by Jackery."""
-
     serial = value.strip().replace(":", "").replace("-", "").upper()
-    if len(serial) != 12 or any(char not in "0123456789ABCDEF" for char in serial):
+    if len(serial) != SERIAL_LENGTH or any(
+        char not in "0123456789ABCDEF" for char in serial
+    ):
         raise ValueError("Serial must contain exactly 12 hexadecimal digits")
     return serial
 
 
 def shelly_rpc_url(host: str) -> str:
     """Build a safe Gen2 RPC URL from a host or base URL."""
-
     raw = host.strip()
     if "://" not in raw:
         raw = f"http://{raw}"
@@ -51,7 +52,8 @@ def shelly_rpc_url(host: str) -> str:
 def _number(source: dict[str, Any], key: str) -> float:
     value = source.get(key)
     if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise BridgeError(f"Shelly response is missing numeric field {key!r}")
+        error_message = f"Shelly response is missing numeric field {key!r}"
+        raise BridgeError(error_message)
     return float(value)
 
 
@@ -59,7 +61,6 @@ def homewizard_measurement(
     shelly: dict[str, Any], *, serial: str, invert_power: bool = False
 ) -> dict[str, Any]:
     """Map one EM.GetStatus result to HomeWizard local API v1."""
-
     sign = -1.0 if invert_power else 1.0
     result: dict[str, Any] = {
         "wifi_ssid": "Home Assistant bridge",
@@ -120,7 +121,6 @@ class ShellySolarVaultBridge:
 
     async def async_read_shelly(self) -> dict[str, Any]:
         """Read and validate the local Shelly endpoint."""
-
         temporary_session: ClientSession | None = None
         if self._session is not None:
             session = self._session
@@ -138,8 +138,9 @@ class ShellySolarVaultBridge:
             ) as response:
                 response.raise_for_status()
                 value = await response.json(content_type=None)
-        except (ClientError, asyncio.TimeoutError, ValueError) as err:
-            raise BridgeError(f"Shelly request failed: {err}") from err
+        except (TimeoutError, ClientError, ValueError) as err:
+            error_message = f"Shelly request failed: {err}"
+            raise BridgeError(error_message) from err
         finally:
             if temporary_session is not None:
                 await temporary_session.close()
@@ -149,7 +150,6 @@ class ShellySolarVaultBridge:
 
     async def async_start(self) -> None:
         """Start serving before publishing the endpoint."""
-
         if self.password:
             self._session = ClientSession(
                 middlewares=(DigestAuthMiddleware(self.username, self.password),)
@@ -190,7 +190,6 @@ class ShellySolarVaultBridge:
 
     async def async_stop(self) -> None:
         """Withdraw mDNS and release all resources."""
-
         if self._service is not None:
             instance = await zeroconf.async_get_async_instance(self.hass)
             await instance.async_unregister_service(self._service)

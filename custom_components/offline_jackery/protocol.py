@@ -16,6 +16,10 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 JACKERY_SERVICE_UUID = "0000bdee-0000-1000-8000-00805f9b34fb"
 WRITE_CHARACTERISTIC_UUID = "0000ee01-0000-1000-8000-00805f9b34fb"
 NOTIFY_CHARACTERISTIC_UUID = "0000ee02-0000-1000-8000-00805f9b34fb"
+AES_BLOCK_BYTES = 16
+ENCRYPTED_PACKET_OVERHEAD = 32
+MIN_PLAINTEXT_BYTES = 20
+RESPONSE_HEADER_BYTES = 16
 
 
 class ProtocolError(RuntimeError):
@@ -24,7 +28,6 @@ class ProtocolError(RuntimeError):
 
 def crc16_modbus(data: bytes) -> bytes:
     """Return CRC16/MODBUS in Jackery's low-byte-first wire order."""
-
     crc = 0xFFFF
     for value in data:
         crc ^= value
@@ -35,7 +38,6 @@ def crc16_modbus(data: bytes) -> bytes:
 
 def decode_bluetooth_key(encoded_key: str) -> bytes:
     """Decode and validate a Base64 AES key returned by Jackery."""
-
     try:
         key = base64.b64decode(encoded_key.strip(), validate=True)
     except (binascii.Error, ValueError) as err:
@@ -47,9 +49,8 @@ def decode_bluetooth_key(encoded_key: str) -> bytes:
 
 def encrypt_packet(packet: bytes, key: bytes, *, iv: bytes | None = None) -> bytes:
     """Encrypt one authenticated logical page with AES-CBC."""
-
-    iv = os.urandom(16) if iv is None else iv
-    if len(iv) != 16:
+    iv = os.urandom(AES_BLOCK_BYTES) if iv is None else iv
+    if len(iv) != AES_BLOCK_BYTES:
         raise ValueError("AES IV must contain 16 bytes")
     padder = padding.PKCS7(algorithms.AES.block_size).padder()
     padded = padder.update(packet) + padder.finalize()
@@ -59,10 +60,11 @@ def encrypt_packet(packet: bytes, key: bytes, *, iv: bytes | None = None) -> byt
 
 def decrypt_packet(notification: bytes, key: bytes) -> bytes:
     """Decrypt a notification and validate padding, magic, and CRC."""
-
-    if len(notification) < 32 or (len(notification) - 16) % 16:
+    if len(notification) < ENCRYPTED_PACKET_OVERHEAD or (
+        len(notification) - AES_BLOCK_BYTES
+    ) % AES_BLOCK_BYTES:
         raise ProtocolError("Invalid encrypted notification length")
-    iv, ciphertext = notification[:16], notification[16:]
+    iv, ciphertext = notification[:AES_BLOCK_BYTES], notification[AES_BLOCK_BYTES:]
     decryptor = Cipher(algorithms.AES(key), modes.CBC(iv)).decryptor()
     padded = decryptor.update(ciphertext) + decryptor.finalize()
     try:
@@ -72,7 +74,7 @@ def decrypt_packet(notification: bytes, key: bytes) -> bytes:
         raise ProtocolError(
             "Invalid AES padding; the Bluetooth key may be wrong"
         ) from err
-    if len(plaintext) < 20 or plaintext[:2] != b"\xdf\xed":
+    if len(plaintext) < MIN_PLAINTEXT_BYTES or plaintext[:2] != b"\xdf\xed":
         raise ProtocolError("Notification does not contain Jackery framing")
     if crc16_modbus(plaintext[:-2]) != plaintext[-2:]:
         raise ProtocolError("Notification CRC check failed")
@@ -93,15 +95,14 @@ class ResponsePage:
 
 def parse_response_page(frame: bytes) -> ResponsePage:
     """Parse a decrypted response frame without random and CRC fields."""
-
-    if len(frame) < 16 or frame[:2] != b"\xdf\xed":
+    if len(frame) < RESPONSE_HEADER_BYTES or frame[:2] != b"\xdf\xed":
         raise ProtocolError("Response frame is too short or has invalid magic")
     page_number = int.from_bytes(frame[4:6], "big")
     page_count = int.from_bytes(frame[6:8], "big")
     length = int.from_bytes(frame[14:16], "big")
     if page_number < 1 or page_count < 1 or page_number > page_count:
         raise ProtocolError("Response page numbers are invalid")
-    if len(frame) != 16 + length:
+    if len(frame) != RESPONSE_HEADER_BYTES + length:
         raise ProtocolError("Response body length does not match frame")
     return ResponsePage(
         page_number=page_number,
@@ -109,7 +110,7 @@ def parse_response_page(frame: bytes) -> ResponsePage:
         action_id=int.from_bytes(frame[8:10], "big"),
         message_type=int.from_bytes(frame[10:12], "big"),
         code=int.from_bytes(frame[12:13], "big", signed=True),
-        body=frame[16:],
+        body=frame[RESPONSE_HEADER_BYTES:],
     )
 
 
@@ -122,7 +123,6 @@ def build_command_pages(
     max_body_bytes: int = 100,
 ) -> list[bytes]:
     """Serialize, page, authenticate, and encrypt one command."""
-
     payload = dict(body)
     if message_type > 0:
         payload.setdefault("cmd", message_type)

@@ -23,6 +23,9 @@ LOGIN_PUBLIC_KEY_B64 = (
     "zk/HStss7Q8/5DqkGD1annQ+eoICo3oi0dITZ0Qll56Dowb8lXi6WHViVDdih/oe"
     "UwVJY89uJNtTWrz7t7QIDAQAB"
 )
+LOGIN_SEED_BYTES = 16
+SOLARVAULT_MODEL_CODE = 3001
+MAX_API_ERROR_MESSAGE_LENGTH = 200
 
 
 class JackeryApiError(RuntimeError):
@@ -63,9 +66,8 @@ def build_login_form(
     details: LoginDetails, *, random_bytes: bytes | None = None
 ) -> dict[str, str]:
     """Build the Android app's RSA-wrapped AES password-login form."""
-
-    seed = os.urandom(16) if random_bytes is None else random_bytes
-    if len(seed) != 16:
+    seed = os.urandom(LOGIN_SEED_BYTES) if random_bytes is None else random_bytes
+    if len(seed) != LOGIN_SEED_BYTES:
         raise ValueError("random_bytes must contain exactly 16 bytes")
     aes_key = base64.b64encode(seed)  # The app uses these 24 ASCII bytes directly.
     payload: dict[str, object] = {
@@ -85,7 +87,8 @@ def build_login_form(
     raw = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode()
     padder = padding.PKCS7(algorithms.AES.block_size).padder()
     padded = padder.update(raw) + padder.finalize()
-    encryptor = Cipher(algorithms.AES(aes_key), modes.ECB()).encryptor()
+    # ECB is required by the Jackery Android login protocol.
+    encryptor = Cipher(algorithms.AES(aes_key), modes.ECB()).encryptor()  # noqa: S305
     encrypted_payload = encryptor.update(padded) + encryptor.finalize()
     public_key = load_der_public_key(base64.b64decode(LOGIN_PUBLIC_KEY_B64))
     encrypted_key = public_key.encrypt(aes_key, rsa_padding.PKCS1v15())
@@ -105,7 +108,10 @@ def _device_id(system: dict[str, Any]) -> str | None:
     serial = system.get("deviceSn")
     candidates = [item for item in devices if isinstance(item, dict)]
     candidates.sort(
-        key=lambda item: (item.get("deviceSn") != serial, item.get("modelCode") != 3001)
+        key=lambda item: (
+            item.get("deviceSn") != serial,
+            item.get("modelCode") != SOLARVAULT_MODEL_CODE,
+        )
     )
     for item in candidates:
         value = item.get("deviceId")
@@ -116,7 +122,6 @@ def _device_id(system: dict[str, Any]) -> str | None:
 
 def normalize_systems(data: object) -> list[JackerySystem]:
     """Normalize the account API's known system-list layouts."""
-
     if not isinstance(data, list):
         raise JackeryApiError("Jackery returned an invalid system list")
     result: list[JackerySystem] = []
@@ -140,8 +145,8 @@ def normalize_systems(data: object) -> list[JackerySystem]:
                 name=str(raw.get("systemName") or "Jackery device"),
                 serial_number=serial,
                 model_code=(
-                    3001
-                    if 3001 in model_codes
+                    SOLARVAULT_MODEL_CODE
+                    if SOLARVAULT_MODEL_CODE in model_codes
                     else (model_codes[0] if model_codes else None)
                 ),
                 device_id=_device_id(raw),
@@ -203,8 +208,14 @@ class JackeryCloudClient:
             message = envelope.get("msg")
             if code in {10402, 10403}:
                 raise JackeryAuthenticationError("Invalid Jackery credentials")
-            safe = message if isinstance(message, str) and len(message) <= 200 else "request failed"
-            raise JackeryApiError(f"Jackery API error {code}: {safe}")
+            safe = (
+                message
+                if isinstance(message, str)
+                and len(message) <= MAX_API_ERROR_MESSAGE_LENGTH
+                else "request failed"
+            )
+            error_message = f"Jackery API error {code}: {safe}"
+            raise JackeryApiError(error_message)
         token = envelope.get("token")
         if isinstance(token, str) and token:
             self._token = token
@@ -219,7 +230,6 @@ class JackeryCloudClient:
         region_code: str | None,
     ) -> list[JackerySystem]:
         """Log in, discard the password form, and return account systems."""
-
         details = LoginDetails(
             account=account,
             phone=phone,
@@ -234,7 +244,6 @@ class JackeryCloudClient:
 
     async def async_bluetooth_key(self, system: JackerySystem) -> str:
         """Fetch the selected system key, falling back to the system-list value."""
-
         if system.device_id:
             try:
                 data = await self._request(

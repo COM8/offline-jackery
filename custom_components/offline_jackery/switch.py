@@ -60,24 +60,20 @@ class OfflineJackerySwitch(OfflineJackeryEntity, SwitchEntity):
     @property
     def is_on(self) -> bool | None:
         """Return the latest confirmed switch state."""
-
         value = nested_value(self.coordinator.data, self._path)
         return bool(value) if isinstance(value, (bool, int)) else None
 
     async def async_turn_on(self, **_kwargs: Any) -> None:
         """Enable the field and refresh device state."""
-
         await self._setter(True)
 
     async def async_turn_off(self, **_kwargs: Any) -> None:
         """Disable the field and refresh device state."""
-
         await self._setter(False)
 
     @property
     def extra_state_attributes(self) -> dict[str, str]:
         """Describe the safety-sensitive writable property."""
-
         descriptions = {
             "telemetry.swEps": (
                 "Controls the SolarVault Off-grid/EPS output. This can affect "

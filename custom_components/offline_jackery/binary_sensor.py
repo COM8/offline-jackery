@@ -21,7 +21,6 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up connectivity and dynamic Boolean properties."""
-
     coordinator = entry.runtime_data.coordinator
     async_add_entities([OfflineJackeryConnectivity(coordinator)])
     known: set[str] = set()
@@ -57,13 +56,11 @@ class OfflineJackeryConnectivity(OfflineJackeryEntity, BinarySensorEntity):
     @property
     def available(self) -> bool:
         """Keep connectivity visible while the device is disconnected."""
-
         return True
 
     @property
     def is_on(self) -> bool:
         """Return whether a GATT connection is active."""
-
         return self.coordinator.connected
 
 
@@ -79,14 +76,12 @@ class OfflineJackeryBooleanSensor(OfflineJackeryEntity, BinarySensorEntity):
     @property
     def is_on(self) -> bool | None:
         """Return the latest Boolean value."""
-
         value = nested_value(self.coordinator.data, self.path)
         return value if isinstance(value, bool) else None
 
     @property
     def extra_state_attributes(self) -> dict[str, str]:
         """Explain the raw source and meaning of the property."""
-
         return {
             "protocol_field": self.path,
             "description": property_description(self.path),

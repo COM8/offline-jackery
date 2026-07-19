@@ -33,7 +33,6 @@ class ExponentialBackoff:
 
     def failed(self, now: float) -> int:
         """Record a failure and return its retry delay."""
-
         delay = min(2**self.failures, self.maximum)
         self.failures += 1
         self.next_retry = now + delay
@@ -41,12 +40,10 @@ class ExponentialBackoff:
 
     def ready(self, now: float) -> bool:
         """Return whether another automatic connection may be attempted."""
-
         return now >= self.next_retry
 
     def reset(self) -> None:
         """Clear failures after success or an explicit user refresh."""
-
         self.failures = 0
         self.next_retry = 0.0
 
@@ -78,12 +75,10 @@ class OfflineJackeryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
     @property
     def connected(self) -> bool:
         """Return whether the GATT connection is currently active."""
-
         return self._client is not None and self._client.is_connected
 
     def _disconnected(self) -> None:
         """Log unsolicited disconnects; the next update creates a fresh client."""
-
         LOGGER.info(
             "Jackery device %s disconnected; reconnect will be scheduled",
             self.address,
@@ -91,7 +86,6 @@ class OfflineJackeryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
 
     async def _async_connect(self) -> SolarVaultClient:
         """Resolve the best HA adapter/proxy and create a fresh Bleak client."""
-
         device = bluetooth.async_ble_device_from_address(
             self.hass, self.address, connectable=True
         )
@@ -108,11 +102,11 @@ class OfflineJackeryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Connect if needed and read a full local snapshot."""
-
         now = time.monotonic()
         if not self._backoff.ready(now):
             remaining = max(1, round(self._backoff.next_retry - now))
-            raise UpdateFailed(f"Bluetooth reconnect waiting for backoff ({remaining}s)")
+            error_message = f"Bluetooth reconnect waiting for backoff ({remaining}s)"
+            raise UpdateFailed(error_message)
         try:
             client = self._client if self.connected else await self._async_connect()
             data = await client.async_read()
@@ -132,7 +126,8 @@ class OfflineJackeryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
                 delay,
                 err,
             )
-            raise UpdateFailed(f"Bluetooth update failed: {err}") from err
+            error_message = f"Bluetooth update failed: {err}"
+            raise UpdateFailed(error_message) from err
         if self._backoff.failures:
             LOGGER.info("Jackery Bluetooth connection recovered")
         self._backoff.reset()
@@ -140,13 +135,11 @@ class OfflineJackeryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
 
     async def async_force_refresh(self) -> None:
         """Bypass reconnect backoff for an explicit user request."""
-
         self._backoff.reset()
         await self.async_request_refresh()
 
     async def async_set_eps(self, enabled: bool) -> None:
         """Write EPS state and refresh all related entities."""
-
         if not self.connected or self._client is None:
             await self.async_force_refresh()
         if self._client is None:
@@ -157,7 +150,6 @@ class OfflineJackeryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
 
     async def async_set_follow_meter(self, enabled: bool) -> None:
         """Write smart-meter following state and refresh."""
-
         if not self.connected or self._client is None:
             await self.async_force_refresh()
         if self._client is None:
@@ -168,12 +160,12 @@ class OfflineJackeryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
 
     async def async_set_feed_grid_limit(self, power_w: int) -> None:
         """Validate and write the grid feed-in ceiling."""
-
         maximum = nested_value(self.data, "system.maxSysOutPw")
         if not isinstance(maximum, int) or maximum <= 0:
             raise ValueError("Device did not report its maximum system output")
         if power_w < 0 or power_w > maximum or power_w % 10:
-            raise ValueError(f"Feed-in limit must be 0-{maximum} W in 10 W steps")
+            error_message: str = f"Feed-in limit must be 0-{maximum} W in 10 W steps"
+            raise ValueError(error_message)
         if not self.connected or self._client is None:
             await self.async_force_refresh()
         if self._client is None:
@@ -184,7 +176,6 @@ class OfflineJackeryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
 
     async def async_bind_local_p1_meter(self, serial: str) -> None:
         """Bind one configured local P1 bridge over BLE."""
-
         if not self.connected or self._client is None:
             await self.async_force_refresh()
         if self._client is None:
@@ -195,7 +186,6 @@ class OfflineJackeryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
 
     async def async_shutdown(self) -> None:
         """Release the GATT connection during unload."""
-
         if self._client is not None:
             await self._client.async_disconnect()
             self._client = None
@@ -203,7 +193,6 @@ class OfflineJackeryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
 
 def nested_value(data: object, path: str) -> object | None:
     """Read a dot-separated dictionary/list path."""
-
     current = data
     for part in path.split("."):
         if isinstance(current, dict):
@@ -220,7 +209,6 @@ def scalar_values(
     value: object, prefix: str = ""
 ) -> dict[str, str | int | float | bool]:
     """Flatten every scalar BLE property, including list members."""
-
     result: dict[str, str | int | float | bool] = {}
     if isinstance(value, dict):
         for key, item in value.items():

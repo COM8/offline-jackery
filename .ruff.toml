@@ -2,6 +2,8 @@
 
 target-version = "py314"
 
+line-length = 256
+
 [lint]
 select = [
     "ALL",
@@ -13,6 +15,19 @@ ignore = [
     "D212", # multi-line-summary-first-line (incompatible with formatter)
     "COM812", # incompatible with formatter
     "ISC001", # incompatible with formatter
+    "FBT001", # don't care about positional bool arguments
+    "FBT003", # don't care about positional bool arguments
+    "TRY003", # long messages for exceptions are fine
+    "D101", # doc strings are optional
+    "D102", # doc strings are optional
+    "D103", # doc strings are optional
+    "D107", # doc strings for __init__ are optional
+    "TC001", # imports that only exist for type checking should always be there to reduce code complexity
+    "TC002", # imports that only exist for type checking should always be there to reduce code complexity
+    "TC003", # imports that only exist for type checking should always be there to reduce code complexity
+    "EM101", # no need to asign exception strings to variables first
+    "PLR0913", # congnitive complexity here is fine
+    "S104", # yes, we want to bind to all interfaces
 ]
 
 [lint.flake8-pytest-style]
@@ -23,3 +38,10 @@ keep-runtime-typing = true
 
 [lint.mccabe]
 max-complexity = 25
+
+[lint.per-file-ignores]
+"tests/**/*.py" = [
+    "S101", # asserts allowed in tests...
+    "PLR2004", # magic numbers are allowed in tests
+    "D103", # doc strings are not mandatorry for tests since the test name should be descriptive
+]

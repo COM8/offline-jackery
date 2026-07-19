@@ -30,6 +30,5 @@ class OfflineJackeryEntity(CoordinatorEntity[OfflineJackeryDataUpdateCoordinator
 
     def _set_unique_id(self, suffix: str) -> None:
         """Use stable serial plus property suffix for entity identity."""
-
         serial = self.coordinator.config_entry.data[CONF_SERIAL_NUMBER]
         self._attr_unique_id = f"{serial}_{suffix}"
