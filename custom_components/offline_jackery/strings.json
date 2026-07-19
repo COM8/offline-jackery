@@ -30,7 +30,7 @@
         }
       },
       "shelly_bridge": {
-        "title": "Add local Shelly P1 bridge",
+        "title": "Add local Shelly Pro 3EM <-> HomeWizard P1 bridge",
         "description": "This exposes one Shelly Pro 3EM as a HomeWizard P1 meter. Use a unique port for every bridge. The advertised address must be the Home Assistant host's LAN IPv4 address reachable by the SolarVault.",
         "data": {
           "shelly_host": "Shelly hostname, IP, or base URL",

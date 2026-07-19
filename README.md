@@ -30,9 +30,15 @@ You can add any number of Shelly Pro 3EM bridges from the same integration:
    address. The latter must be reachable by the SolarVault.
 3. Keep the generated virtual meter serial, and choose a different HTTP port
    for each additional bridge (for example 21001, 21002, ...).
-4. After both entries are loaded, run the
-   `offline_jackery.bind_shelly_bridge` action with the SolarVault config-entry
-   ID and bridge serial. Then enable **Smart-meter power following**.
+4. Open the SolarVault device in Home Assistant and use its **Smart-meter
+   source** selector. Choose any loaded local bridge; the integration binds it
+   over Bluetooth and enables smart-meter following automatically.
+
+Choose **Current meter configuration (for example online Shelly)** to remove
+the local bridge selected through this integration and resume following the
+SolarVault's remaining meter configuration. Other meter bindings are not
+removed. The `offline_jackery.bind_shelly_bridge` action remains available for
+automations and performs the same selection.
 
 Each entry polls only the Shelly's local Gen2 RPC API, serves HomeWizard API v1
 over HTTP, and advertises `_hwenergy._tcp.local.` with mDNS. No Shelly or

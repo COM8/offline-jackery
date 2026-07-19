@@ -181,7 +181,7 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                             CONF_BRIDGE_PORT: port,
                         }
                     )
-                    return self.async_create_entry(title=f"Shelly P1 bridge {serial[-6:]}", data=data)
+                    return self.async_create_entry(title=f"Shelly Pro 3EM <-> HomeWizard P1 bridge {serial[-6:]}", data=data)
 
         return self.async_show_form(
             step_id="shelly_bridge",

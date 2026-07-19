@@ -15,6 +15,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .bluetooth import SolarVaultClient
 from .const import (
+    CONF_SELECTED_BRIDGE_SERIAL,
     DOMAIN,
     LOGGER,
     MAX_RETRY_INTERVAL_SECONDS,
@@ -181,6 +182,37 @@ class OfflineJackeryDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]])
         await self._client.async_bind_local_p1_meter(serial)
         await asyncio.sleep(0.2)
         await self.async_force_refresh()
+
+    async def async_select_meter_bridge(self, serial: str | None) -> None:
+        """Select a local bridge or return to the device's other meter setup."""
+        previous = self.config_entry.options.get(CONF_SELECTED_BRIDGE_SERIAL)
+        if previous == serial:
+            await self.async_set_follow_meter(True)
+            return
+        if not self.connected or self._client is None:
+            await self.async_force_refresh()
+        if self._client is None:
+            raise ConnectionError("Jackery device is unavailable")
+
+        if previous:
+            await self._client.async_unbind_local_p1_meter(previous)
+            self._store_selected_bridge(None)
+        if serial:
+            await self._client.async_bind_local_p1_meter(serial)
+            self._store_selected_bridge(serial)
+        await self._client.async_set_follow_meter(True)
+        await asyncio.sleep(0.2)
+        await self.async_force_refresh()
+
+    def _store_selected_bridge(self, serial: str | None) -> None:
+        """Persist the local bridge that this integration bound."""
+        self.hass.config_entries.async_update_entry(
+            self.config_entry,
+            options={
+                **self.config_entry.options,
+                CONF_SELECTED_BRIDGE_SERIAL: serial,
+            },
+        )
 
     async def async_shutdown(self) -> None:
         """Release the GATT connection during unload."""

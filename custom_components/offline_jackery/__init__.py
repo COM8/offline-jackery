@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import voluptuous as vol
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ServiceValidationError
@@ -13,6 +14,7 @@ from homeassistant.exceptions import ServiceValidationError
 from . import binary_sensor as _binary_sensor  # noqa: F401
 from . import button as _button  # noqa: F401
 from . import number as _number  # noqa: F401
+from . import select as _select  # noqa: F401
 from . import sensor as _sensor  # noqa: F401
 from . import switch as _switch  # noqa: F401
 from .bridge import ShellySolarVaultBridge, normalize_serial
@@ -40,6 +42,7 @@ PLATFORMS = [
     Platform.SWITCH,
     Platform.NUMBER,
     Platform.BUTTON,
+    Platform.SELECT,
 ]
 
 SERVICE_BIND_BRIDGE = "bind_shelly_bridge"
@@ -50,14 +53,14 @@ async def async_setup(hass: HomeAssistant, _config: dict) -> bool:
 
     async def async_bind_bridge(call: ServiceCall) -> None:
         entry = hass.config_entries.async_get_entry(call.data["config_entry_id"])
-        if entry is None or not isinstance(entry.runtime_data, OfflineJackeryData):
+        if entry is None or entry.state is not ConfigEntryState.LOADED or not isinstance(entry.runtime_data, OfflineJackeryData):
             raise ServiceValidationError("config_entry_id must identify a loaded Jackery entry")
         serial = normalize_serial(call.data[CONF_BRIDGE_SERIAL])
-        configured = any(candidate.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_BRIDGE and candidate.data.get(CONF_BRIDGE_SERIAL) == serial and isinstance(candidate.runtime_data, ShellyBridgeData) for candidate in hass.config_entries.async_entries(DOMAIN))
+        configured = any(candidate.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_BRIDGE and candidate.data.get(CONF_BRIDGE_SERIAL) == serial and candidate.state is ConfigEntryState.LOADED for candidate in hass.config_entries.async_entries(DOMAIN))
         if not configured:
             message = f"No loaded Shelly bridge has serial {serial}"
             raise ServiceValidationError(message)
-        await entry.runtime_data.coordinator.async_bind_local_p1_meter(serial)
+        await entry.runtime_data.coordinator.async_select_meter_bridge(serial)
 
     hass.services.async_register(
         DOMAIN,

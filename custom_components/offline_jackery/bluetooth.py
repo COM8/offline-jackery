@@ -31,6 +31,7 @@ SET_EPS = (3022, 107)
 SET_FEED_GRID_LIMIT = (3029, 121)
 SET_FOLLOW_METER = (3044, 121)
 BIND_SMART_METER = (3012, 108)
+UNBIND_SMART_METER = (3013, 109)
 
 
 def advertised_serial(manufacturer_data: dict[int, bytes]) -> str | None:
@@ -228,3 +229,8 @@ class SolarVaultClient:
             if failed:
                 error_message = f"Smart-meter binding failed: {failed}"
                 raise RuntimeError(error_message)
+
+    async def async_unbind_local_p1_meter(self, serial: str) -> None:
+        """Unbind one local HomeWizard-compatible meter by serial."""
+        serial = normalize_serial(serial)
+        await self._async_command(*UNBIND_SMART_METER, {"deviceSn": serial})
