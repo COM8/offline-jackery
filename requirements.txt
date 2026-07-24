@@ -3,5 +3,5 @@ homeassistant==2026.7.2
 habluetooth==6.26.5
 pip>=21.3.1
 pytest==9.1.1
-ruff==0.15.22
+ruff==0.16.0
 aiousbwatcher==1.1.2
