@@ -106,7 +106,7 @@ def homewizard_service_info(*, serial: str, address: str, port: int) -> ServiceI
             "product_name": "P1 Meter",
             "product_type": "HWE-P1",
         },
-        server=f"p1meter-{serial.lower()}.local.",
+        server=f"{instance_name.lower()}.local.",
     )
 
 

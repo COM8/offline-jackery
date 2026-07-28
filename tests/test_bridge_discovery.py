@@ -20,7 +20,7 @@ def test_homewizard_service_info_matches_api_v1_discovery() -> None:
     )
 
     assert service.name == "p1meter-DDEEFF._hwenergy._tcp.local."
-    assert service.server == "p1meter-aabbccddeeff.local."
+    assert service.server == "p1meter-ddeeff.local."
     assert service.port == 80
     assert service.parsed_addresses() == ["192.0.2.10"]
     assert service.properties == {
