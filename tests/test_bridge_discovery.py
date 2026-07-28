@@ -9,6 +9,7 @@ from custom_components.offline_jackery.bridge import (
     homewizard_json_response,
     homewizard_measurement,
     homewizard_service_info,
+    shelly_rpc_url,
 )
 
 
@@ -62,11 +63,23 @@ def test_measurement_does_not_claim_meter_unique_id() -> None:
             "c_act_power": 0.3,
             "c_voltage": 232.0,
             "c_current": 0.3,
+            "total_act": 123456.0,
+            "total_act_ret": 7890.0,
         },
     )
 
     assert "unique_id" not in measurement
     assert measurement["meter_model"] == "Shelly Pro 3EM"
+    assert measurement["total_power_import_kwh"] == 123.456
+    assert measurement["total_power_import_t1_kwh"] == 123.456
+    assert measurement["total_power_import_t2_kwh"] == 0
+    assert measurement["total_power_export_kwh"] == 7.89
+    assert measurement["total_power_export_t1_kwh"] == 7.89
+    assert measurement["total_power_export_t2_kwh"] == 0
+
+
+def test_shelly_rpc_url_supports_energy_counters() -> None:
+    assert shelly_rpc_url("192.0.2.10", method="EMData.GetStatus") == ("http://192.0.2.10/rpc/EMData.GetStatus?id=0")
 
 
 def test_homewizard_json_response_uses_embedded_device_content_type() -> None:

@@ -23,6 +23,7 @@ HOMEWIZARD_API_PORT = 80
 POLL_SECONDS = 1.0
 STALE_SECONDS = 5.0
 SERIAL_LENGTH = 12
+SHELLY_RPC_METHODS = {"EM.GetStatus", "EMData.GetStatus"}
 
 
 class BridgeError(RuntimeError):
@@ -37,8 +38,10 @@ def normalize_serial(value: str) -> str:
     return serial
 
 
-def shelly_rpc_url(host: str) -> str:
+def shelly_rpc_url(host: str, *, method: str = "EM.GetStatus") -> str:
     """Build a safe Gen2 RPC URL from a host or base URL."""
+    if method not in SHELLY_RPC_METHODS:
+        raise ValueError("Unsupported Shelly RPC method")
     raw = host.strip()
     if "://" not in raw:
         raw = f"http://{raw}"
@@ -46,7 +49,7 @@ def shelly_rpc_url(host: str) -> str:
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         raise ValueError("Enter a valid Shelly hostname, IP address, or HTTP URL")
     # A user-supplied path must not accidentally turn into /foo/rpc/....
-    return urlunsplit((parsed.scheme, parsed.netloc, "/rpc/EM.GetStatus", "id=0", ""))
+    return urlunsplit((parsed.scheme, parsed.netloc, f"/rpc/{method}", "id=0", ""))
 
 
 def _number(source: dict[str, Any], key: str) -> float:
@@ -65,6 +68,12 @@ def homewizard_measurement(shelly: dict[str, Any], *, invert_power: bool = False
         "wifi_strength": 100,
         "smr_version": 50,
         "meter_model": "Shelly Pro 3EM",
+        "total_power_import_kwh": round(_number(shelly, "total_act") / 1000, 6),
+        "total_power_import_t1_kwh": round(_number(shelly, "total_act") / 1000, 6),
+        "total_power_import_t2_kwh": 0,
+        "total_power_export_kwh": round(_number(shelly, "total_act_ret") / 1000, 6),
+        "total_power_export_t1_kwh": round(_number(shelly, "total_act_ret") / 1000, 6),
+        "total_power_export_t2_kwh": 0,
         "active_power_w": round(_number(shelly, "total_act_power") * sign, 3),
     }
     for index, phase in enumerate(("a", "b", "c"), 1):
@@ -134,6 +143,7 @@ class ShellySolarVaultBridge:
     ) -> None:
         self.hass = hass
         self.url = shelly_rpc_url(host)
+        self.energy_url = shelly_rpc_url(host, method="EMData.GetStatus")
         self.serial = normalize_serial(serial)
         self.port = port
         self.address = str(ipaddress.IPv4Address(advertise_address))
@@ -156,21 +166,24 @@ class ShellySolarVaultBridge:
             session = temporary_session
         else:
             session = async_get_clientsession(self.hass)
+        value: dict[str, Any] = {}
         try:
-            async with session.get(
-                self.url,
-                timeout=ClientTimeout(total=2),
-            ) as response:
-                response.raise_for_status()
-                value = await response.json(content_type=None)
+            for url in (self.url, self.energy_url):
+                async with session.get(
+                    url,
+                    timeout=ClientTimeout(total=2),
+                ) as response:
+                    response.raise_for_status()
+                    payload = await response.json(content_type=None)
+                if not isinstance(payload, dict):
+                    raise BridgeError("Shelly returned a non-object JSON value")
+                value.update(payload)
         except (TimeoutError, ClientError, ValueError) as err:
             error_message = f"Shelly request failed: {err}"
             raise BridgeError(error_message) from err
         finally:
             if temporary_session is not None:
                 await temporary_session.close()
-        if not isinstance(value, dict):
-            raise BridgeError("Shelly returned a non-object JSON value")
         return value
 
     async def async_start(self) -> None:
