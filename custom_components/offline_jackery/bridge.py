@@ -18,6 +18,7 @@ from zeroconf import ServiceInfo
 from .const import LOGGER
 
 SERVICE_TYPE = "_hwenergy._tcp.local."
+HOMEWIZARD_API_PORT = 80
 POLL_SECONDS = 1.0
 STALE_SECONDS = 5.0
 SERIAL_LENGTH = 12
@@ -71,6 +72,26 @@ def homewizard_measurement(shelly: dict[str, Any], *, serial: str, invert_power:
         result[f"active_voltage_l{index}_v"] = round(_number(shelly, f"{phase}_voltage"), 3)
         result[f"active_current_l{index}_a"] = round(_number(shelly, f"{phase}_current"), 3)
     return result
+
+
+def homewizard_service_info(*, serial: str, address: str, port: int) -> ServiceInfo:
+    """Build the complete HomeWizard API v1 mDNS advertisement."""
+    serial = normalize_serial(serial)
+    instance_name = f"p1meter-{serial[-6:]}"
+    return ServiceInfo(
+        SERVICE_TYPE,
+        f"{instance_name}.{SERVICE_TYPE}",
+        addresses=[ipaddress.IPv4Address(address).packed],
+        port=port,
+        properties={
+            "api_enabled": "1",
+            "path": "/api/v1",
+            "serial": serial,
+            "product_name": "P1 Meter",
+            "product_type": "HWE-P1",
+        },
+        server=f"p1meter-{serial.lower()}.local.",
+    )
 
 
 @dataclass(slots=True)
@@ -155,14 +176,10 @@ class ShellySolarVaultBridge:
             raise
 
         self._task = self.hass.async_create_background_task(self._poll(), f"offline_jackery_bridge_{self.serial}")
-        name = f"p1meter-{self.serial}"
-        service = ServiceInfo(
-            SERVICE_TYPE,
-            f"{name}.{SERVICE_TYPE}",
-            addresses=[ipaddress.IPv4Address(self.address).packed],
+        service = homewizard_service_info(
+            serial=self.serial,
+            address=self.address,
             port=self.port,
-            properties={"serial": self.serial},
-            server=f"{name.lower()}.local.",
         )
         try:
             instance = await zeroconf.async_get_async_instance(self.hass)

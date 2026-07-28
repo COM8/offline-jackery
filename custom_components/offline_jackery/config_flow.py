@@ -21,6 +21,7 @@ from .api import (
 )
 from .bluetooth import SolarVaultClient, advertised_serial, is_jackery, serial_matches
 from .bridge import (
+    HOMEWIZARD_API_PORT,
     BridgeError,
     ShellySolarVaultBridge,
     homewizard_measurement,
@@ -71,7 +72,7 @@ def _validate_bridge_port(port: int) -> None:
 class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Guide account login, system choice, discovery, and validation."""
 
-    VERSION = 1
+    VERSION = 2
 
     def __init__(self) -> None:
         self._cloud: JackeryCloudClient | None = None
@@ -189,7 +190,7 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 {
                     vol.Required(CONF_SHELLY_HOST): selector.TextSelector(),
                     vol.Required(CONF_BRIDGE_SERIAL, default=suggested_serial): selector.TextSelector(),
-                    vol.Required(CONF_BRIDGE_PORT, default=21001): selector.NumberSelector(
+                    vol.Required(CONF_BRIDGE_PORT, default=HOMEWIZARD_API_PORT): selector.NumberSelector(
                         selector.NumberSelectorConfig(
                             min=1,
                             max=BRIDGE_PORT_MAXIMUM,

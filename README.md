@@ -23,13 +23,14 @@ affiliated with or supported by Jackery.
 
 ## Local Shelly Pro 3EM bridge
 
-You can add any number of Shelly Pro 3EM bridges from the same integration:
+You can add a Shelly Pro 3EM bridge from the same integration:
 
 1. Add **Offline Jackery** again and choose **Shelly Pro 3EM local P1 bridge**.
 2. Enter the Shelly's local address and the Home Assistant host's LAN IPv4
    address. The latter must be reachable by the SolarVault.
-3. Keep the generated virtual meter serial, and choose a different HTTP port
-   for each additional bridge (for example 21001, 21002, ...).
+3. Keep the generated virtual meter serial and use HTTP port **80**. HomeWizard
+   API v1 defines port 80; a non-standard port may be discovered by the Jackery
+   app but subsequently reported offline by the SolarVault.
 4. Open the SolarVault device in Home Assistant and use its **Smart-meter
    source** selector. Choose any loaded local bridge; the integration binds it
    over Bluetooth and enables smart-meter following automatically.
@@ -41,7 +42,8 @@ removed. The `offline_jackery.bind_shelly_bridge` action remains available for
 automations and performs the same selection.
 
 Each entry polls only the Shelly's local Gen2 RPC API, serves HomeWizard API v1
-over HTTP, and advertises `_hwenergy._tcp.local.` with mDNS. No Shelly or
+over HTTP, and advertises `_hwenergy._tcp.local.` with the complete HomeWizard
+TXT metadata. No Shelly or
 Jackery cloud is involved after initial SolarVault setup. If the Shelly uses
 authentication, its password is stored in Home Assistant's config-entry
 storage. Keep Home Assistant, the Shelly, and SolarVault on the same trusted

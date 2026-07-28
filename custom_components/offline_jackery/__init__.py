@@ -18,7 +18,7 @@ from . import number as _number  # noqa: F401
 from . import select as _select  # noqa: F401
 from . import sensor as _sensor  # noqa: F401
 from . import switch as _switch  # noqa: F401
-from .bridge import ShellySolarVaultBridge, normalize_serial
+from .bridge import HOMEWIZARD_API_PORT, ShellySolarVaultBridge, normalize_serial
 from .config_flow import (
     CONF_ADDRESS,
     CONF_ADVERTISE_ADDRESS,
@@ -48,6 +48,7 @@ PLATFORMS = [
 
 SERVICE_BIND_BRIDGE = "bind_shelly_bridge"
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+LEGACY_BRIDGE_PORT = 21001
 
 
 async def async_setup(hass: HomeAssistant, _config: dict) -> bool:
@@ -75,6 +76,18 @@ async def async_setup(hass: HomeAssistant, _config: dict) -> bool:
             }
         ),
     )
+    return True
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: OfflineJackeryConfigEntry) -> bool:
+    """Restore the standard HomeWizard API port for existing bridge entries."""
+    if entry.version != 1:
+        return True
+
+    data = dict(entry.data)
+    if data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_BRIDGE and data.get(CONF_BRIDGE_PORT) == LEGACY_BRIDGE_PORT:
+        data[CONF_BRIDGE_PORT] = HOMEWIZARD_API_PORT
+    hass.config_entries.async_update_entry(entry, data=data, version=2)
     return True
 
 

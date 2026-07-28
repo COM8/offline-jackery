@@ -31,7 +31,7 @@
       },
       "shelly_bridge": {
         "title": "Add local Shelly Pro 3EM <-> HomeWizard P1 bridge",
-        "description": "This exposes one Shelly Pro 3EM as a HomeWizard P1 meter. Use a unique port for every bridge. The advertised address must be the Home Assistant host's LAN IPv4 address reachable by the SolarVault.",
+        "description": "This exposes one Shelly Pro 3EM as a HomeWizard P1 meter. Use standard HTTP port 80 for Jackery compatibility. The advertised address must be the Home Assistant host's LAN IPv4 address reachable by the SolarVault.",
         "data": {
           "shelly_host": "Shelly hostname, IP, or base URL",
           "bridge_serial": "Virtual meter serial (12 hexadecimal digits)",
@@ -45,7 +45,7 @@
         "data_description": {
           "shelly_host": "The Shelly's local address, for example 192.168.1.50 or {local_url}. Cloud URLs are not supported.",
           "bridge_serial": "A stable virtual HomeWizard identity. Keep the generated value unless it conflicts with another bridge.",
-          "bridge_port": "The TCP port served by Home Assistant. Every bridge on this Home Assistant host needs a different port.",
+          "bridge_port": "The TCP port served by Home Assistant. Use port 80; a non-standard port may be discovered but reported offline by the SolarVault.",
           "advertise_address": "The LAN IPv4 address of the Home Assistant machine, not the Shelly address. The SolarVault must be able to reach it.",
           "shelly_authentication": "Leave disabled for a passwordless Shelly. Enable it only if local web/RPC authentication is configured on the Shelly.",
           "shelly_username": "Used only when authentication is enabled. Shelly Gen2 devices normally use admin.",
