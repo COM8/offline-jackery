@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
+import json
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -56,15 +57,14 @@ def _number(source: dict[str, Any], key: str) -> float:
     return float(value)
 
 
-def homewizard_measurement(shelly: dict[str, Any], *, serial: str, invert_power: bool = False) -> dict[str, Any]:
+def homewizard_measurement(shelly: dict[str, Any], *, invert_power: bool = False) -> dict[str, Any]:
     """Map one EM.GetStatus result to HomeWizard local API v1."""
     sign = -1.0 if invert_power else 1.0
     result: dict[str, Any] = {
         "wifi_ssid": "Home Assistant bridge",
         "wifi_strength": 100,
         "smr_version": 50,
-        "meter_model": "Shelly Pro 3EM via Offline Jackery",
-        "unique_id": serial,
+        "meter_model": "Shelly Pro 3EM",
         "active_power_w": round(_number(shelly, "total_act_power") * sign, 3),
     }
     for index, phase in enumerate(("a", "b", "c"), 1):
@@ -72,6 +72,22 @@ def homewizard_measurement(shelly: dict[str, Any], *, serial: str, invert_power:
         result[f"active_voltage_l{index}_v"] = round(_number(shelly, f"{phase}_voltage"), 3)
         result[f"active_current_l{index}_a"] = round(_number(shelly, f"{phase}_current"), 3)
     return result
+
+
+def homewizard_json_response(
+    value: dict[str, Any],
+    *,
+    status: int = 200,
+    headers: dict[str, str] | None = None,
+) -> web.Response:
+    """Return compact JSON with the content type emitted by a P1 Meter."""
+    body = json.dumps(value, separators=(",", ":"), allow_nan=False).encode()
+    return web.Response(
+        body=body,
+        status=status,
+        headers=headers,
+        content_type="application/json",
+    )
 
 
 def homewizard_service_info(*, serial: str, address: str, port: int) -> ServiceInfo:
@@ -211,7 +227,7 @@ class ShellySolarVaultBridge:
             started = time.monotonic()
             try:
                 value = await self.async_read_shelly()
-                self.snapshot.measurement = homewizard_measurement(value, serial=self.serial, invert_power=self.invert_power)
+                self.snapshot.measurement = homewizard_measurement(value, invert_power=self.invert_power)
                 self.snapshot.updated = time.monotonic()
                 self.snapshot.error = ""
             except BridgeError as err:
@@ -229,7 +245,7 @@ class ShellySolarVaultBridge:
         return dict(self.snapshot.measurement), self.snapshot.error
 
     async def _api(self, _request: web.Request) -> web.Response:
-        return web.json_response(
+        return homewizard_json_response(
             {
                 "product_type": "HWE-P1",
                 "product_name": "P1 Meter",
@@ -241,7 +257,7 @@ class ShellySolarVaultBridge:
 
     async def _data(self, _request: web.Request) -> web.Response:
         value, error = self._current()
-        return web.json_response(
+        return homewizard_json_response(
             value if value is not None else {"status": "unavailable", "error": error},
             status=200 if value is not None else 503,
             headers={"Cache-Control": "no-store"},
@@ -249,7 +265,7 @@ class ShellySolarVaultBridge:
 
     async def _health(self, _request: web.Request) -> web.Response:
         value, error = self._current()
-        return web.json_response(
+        return homewizard_json_response(
             {"status": "ok", "active_power_w": value["active_power_w"]} if value is not None else {"status": "unavailable", "error": error},
             status=200 if value is not None else 503,
         )

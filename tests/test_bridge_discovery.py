@@ -6,6 +6,8 @@ from types import SimpleNamespace
 from custom_components.offline_jackery import async_migrate_entry
 from custom_components.offline_jackery.bridge import (
     HOMEWIZARD_API_PORT,
+    homewizard_json_response,
+    homewizard_measurement,
     homewizard_service_info,
 )
 
@@ -45,3 +47,30 @@ def test_migration_moves_old_default_bridge_to_homewizard_port() -> None:
             "version": 2,
         }
     ]
+
+
+def test_measurement_does_not_claim_meter_unique_id() -> None:
+    measurement = homewizard_measurement(
+        {
+            "total_act_power": 12.3,
+            "a_act_power": 10.0,
+            "a_voltage": 230.0,
+            "a_current": 0.1,
+            "b_act_power": 2.0,
+            "b_voltage": 231.0,
+            "b_current": 0.2,
+            "c_act_power": 0.3,
+            "c_voltage": 232.0,
+            "c_current": 0.3,
+        },
+    )
+
+    assert "unique_id" not in measurement
+    assert measurement["meter_model"] == "Shelly Pro 3EM"
+
+
+def test_homewizard_json_response_uses_embedded_device_content_type() -> None:
+    response = homewizard_json_response({"active_power_w": 12.3})
+
+    assert response.headers["Content-Type"] == "application/json"
+    assert response.body == b'{"active_power_w":12.3}'

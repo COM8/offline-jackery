@@ -161,7 +161,6 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 reading = await bridge.async_read_shelly()
                 homewizard_measurement(
                     reading,
-                    serial=serial,
                     invert_power=user_input[CONF_INVERT_POWER],
                 )
             except BridgeError, ValueError:
