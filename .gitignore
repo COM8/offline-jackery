@@ -19,3 +19,7 @@ config/*
 
 # Reverse engineering source
 jackery-app/
+
+# OpenSpec
+.agents
+.claude

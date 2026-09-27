@@ -6,11 +6,13 @@
         "title": "Choose what to add",
         "menu_options": {
           "jackery": "Jackery SolarVault",
-          "shelly_bridge": "Local Shelly Pro 3EM <-> HomeWizard P1 bridge"
+          "shelly_bridge": "Local Shelly Pro 3EM <-> HomeWizard P1 bridge",
+          "jackery_3p_bridge": "Experimental Jackery Smart Meter 3P discovery mock"
         },
         "menu_option_descriptions": {
           "jackery": "Connect directly to a SolarVault over Bluetooth.",
-          "shelly_bridge": "Expose local Shelly power readings as a HomeWizard P1 meter for a SolarVault."
+          "shelly_bridge": "Expose local Shelly power readings as a HomeWizard P1 meter for a SolarVault.",
+          "jackery_3p_bridge": "Advertise an experimental 3P identity. App recognition, binding, and live metering are not verified."
         }
       },
       "jackery": {
@@ -51,6 +53,30 @@
           "shelly_username": "Used only when authentication is enabled. Shelly Gen2 devices normally use admin.",
           "shelly_password": "Used only when authentication is enabled. It will be stored in Home Assistant's config-entry storage.",
           "invert_power": "Enable if imported grid power appears negative instead of positive. CT clamp orientation is preferably corrected at the meter."
+        }
+      },
+      "jackery_3p_bridge": {
+        "title": "Add experimental Jackery Smart Meter 3P discovery mock",
+        "description": "Discovery only: the service may be visible on the LAN, but app recognition, binding, and live metering are unverified. The Jackery app may require a cloud registered accessory identity. Use the Home Assistant host's reachable LAN IPv4 address and port 80. The serial and bind key are provisional until compared with a physical 3P.",
+        "data": {
+          "shelly_host": "Shelly hostname, IP, or base URL",
+          "bridge_serial": "Provisional 3P serial (6 to 24 letters or digits)",
+          "jackery_3p_bind_key": "Provisional hexadecimal bind key",
+          "bridge_port": "Local HTTP port",
+          "advertise_address": "Home Assistant LAN IPv4 address",
+          "shelly_authentication": "Shelly requires authentication",
+          "shelly_username": "Shelly username",
+          "shelly_password": "Shelly password"
+        },
+        "data_description": {
+          "shelly_host": "The Shelly's local address, for example 192.168.1.50 or {local_url}.",
+          "bridge_serial": "A virtual serial used in the experimental DNS-SD instance name.",
+          "jackery_3p_bind_key": "An even number of hexadecimal digits. This provisional value is advertised, so do not use an account or device secret.",
+          "bridge_port": "The local listener port; port 80 is the current research target.",
+          "advertise_address": "The LAN IPv4 address of the Home Assistant machine.",
+          "shelly_authentication": "Enable only if local RPC authentication is configured on the Shelly.",
+          "shelly_username": "Usually admin for Shelly Gen2 devices.",
+          "shelly_password": "Stored in Home Assistant config-entry storage."
         }
       },
       "system": {
@@ -105,7 +131,12 @@
       "invalid_region": "Enter a two-letter region code, for example DE or US.",
       "key_failed": "Could not obtain a valid Bluetooth key for this device.",
       "invalid_bridge": "Could not validate the bridge settings or read all required Shelly Pro 3EM fields.",
-      "port_in_use": "Another Offline Jackery bridge already uses this HTTP port."
+      "invalid_identity": "Enter a valid virtual meter serial.",
+      "invalid_bind_key": "Enter an even-length hexadecimal bind key of 8 to 24 digits.",
+      "invalid_address": "Enter the Home Assistant host's LAN IPv4 address.",
+      "invalid_port": "Enter a local TCP port from 1 to 65535.",
+      "listener_unavailable": "The HTTP listener could not be allocated on this host and port.",
+      "port_in_use": "Another Offline Jackery bridge already owns this protocol's HTTP routes on the port."
     },
     "abort": {
       "already_configured": "This Jackery device is already configured.",

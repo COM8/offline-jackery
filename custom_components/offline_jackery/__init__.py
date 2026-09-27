@@ -20,10 +20,12 @@ from . import sensor as _sensor  # noqa: F401
 from . import switch as _switch  # noqa: F401
 from .bridge import HOMEWIZARD_API_PORT, ShellySolarVaultBridge, normalize_serial
 from .config_flow import (
+    CONF_3P_BIND_KEY,
     CONF_ADDRESS,
     CONF_ADVERTISE_ADDRESS,
     CONF_BLUETOOTH_KEY,
     CONF_BRIDGE_PORT,
+    CONF_BRIDGE_PROTOCOL,
     CONF_BRIDGE_SERIAL,
     CONF_ENTRY_TYPE,
     CONF_INVERT_POWER,
@@ -32,10 +34,13 @@ from .config_flow import (
     CONF_SHELLY_PASSWORD,
     CONF_SHELLY_USERNAME,
     ENTRY_TYPE_BRIDGE,
+    PROTOCOL_HOMEWIZARD_P1,
+    PROTOCOL_JACKERY_3P,
 )
 from .const import DOMAIN
 from .coordinator import OfflineJackeryDataUpdateCoordinator
 from .data import OfflineJackeryConfigEntry, OfflineJackeryData, ShellyBridgeData
+from .jackery_3p import Jackery3PDiscoveryBridge
 
 PLATFORMS = [
     Platform.SENSOR,
@@ -59,7 +64,13 @@ async def async_setup(hass: HomeAssistant, _config: dict) -> bool:
         if entry is None or entry.state is not ConfigEntryState.LOADED or not isinstance(entry.runtime_data, OfflineJackeryData):
             raise ServiceValidationError("config_entry_id must identify a loaded Jackery entry")
         serial = normalize_serial(call.data[CONF_BRIDGE_SERIAL])
-        configured = any(candidate.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_BRIDGE and candidate.data.get(CONF_BRIDGE_SERIAL) == serial and candidate.state is ConfigEntryState.LOADED for candidate in hass.config_entries.async_entries(DOMAIN))
+        configured = any(
+            candidate.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_BRIDGE
+            and candidate.data.get(CONF_BRIDGE_PROTOCOL, PROTOCOL_HOMEWIZARD_P1) == PROTOCOL_HOMEWIZARD_P1
+            and candidate.data.get(CONF_BRIDGE_SERIAL) == serial
+            and candidate.state is ConfigEntryState.LOADED
+            for candidate in hass.config_entries.async_entries(DOMAIN)
+        )
         if not configured:
             message = f"No loaded Shelly bridge has serial {serial}"
             raise ServiceValidationError(message)
@@ -94,14 +105,14 @@ async def async_migrate_entry(hass: HomeAssistant, entry: OfflineJackeryConfigEn
 async def async_setup_entry(hass: HomeAssistant, entry: OfflineJackeryConfigEntry) -> bool:
     """Set up one locally connected Jackery device or Shelly bridge."""
     if entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_BRIDGE:
-        bridge = ShellySolarVaultBridge(
-            hass,
-            host=entry.data[CONF_SHELLY_HOST],
-            serial=entry.data[CONF_BRIDGE_SERIAL],
-            port=entry.data[CONF_BRIDGE_PORT],
-            advertise_address=entry.data[CONF_ADVERTISE_ADDRESS],
-            username=entry.data.get(CONF_SHELLY_USERNAME, "admin"),
-            password=(
+        common = {
+            "hass": hass,
+            "host": entry.data[CONF_SHELLY_HOST],
+            "serial": entry.data[CONF_BRIDGE_SERIAL],
+            "port": entry.data[CONF_BRIDGE_PORT],
+            "advertise_address": entry.data[CONF_ADVERTISE_ADDRESS],
+            "username": entry.data.get(CONF_SHELLY_USERNAME, "admin"),
+            "password": (
                 entry.data.get(CONF_SHELLY_PASSWORD, "")
                 if entry.data.get(
                     CONF_SHELLY_AUTH,
@@ -109,8 +120,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: OfflineJackeryConfigEntr
                 )
                 else ""
             ),
-            invert_power=entry.data.get(CONF_INVERT_POWER, False),
-        )
+        }
+        protocol = entry.data.get(CONF_BRIDGE_PROTOCOL, PROTOCOL_HOMEWIZARD_P1)
+        if protocol == PROTOCOL_JACKERY_3P:
+            bridge = Jackery3PDiscoveryBridge(**common, bind_key=entry.data[CONF_3P_BIND_KEY])
+        elif protocol == PROTOCOL_HOMEWIZARD_P1:
+            bridge = ShellySolarVaultBridge(**common, invert_power=entry.data.get(CONF_INVERT_POWER, False))
+        else:
+            message = f"Unknown bridge protocol: {protocol}"
+            raise ValueError(message)
         await bridge.async_start()
         entry.runtime_data = ShellyBridgeData(bridge)
         return True

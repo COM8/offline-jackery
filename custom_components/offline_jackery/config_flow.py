@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import ipaddress
 import secrets
+import socket
 from typing import Any
 
 import voluptuous as vol
@@ -27,7 +29,9 @@ from .bridge import (
     homewizard_measurement,
     normalize_serial,
 )
+from .bridge_listener import listener_for
 from .const import DOMAIN, LOGGER
+from .jackery_3p import Jackery3PDiscoveryBridge, normalize_3p_serial, normalize_bind_key
 from .protocol import ProtocolError, decode_bluetooth_key
 
 CONF_ADDRESS = "address"
@@ -49,6 +53,10 @@ CONF_SHELLY_AUTH = "shelly_authentication"
 CONF_SHELLY_USERNAME = "shelly_username"
 CONF_SHELLY_PASSWORD = "shelly_password"  # noqa: S105
 CONF_INVERT_POWER = "invert_power"
+CONF_BRIDGE_PROTOCOL = "bridge_protocol"
+PROTOCOL_HOMEWIZARD_P1 = "homewizard_p1"
+PROTOCOL_JACKERY_3P = "jackery_3p"
+CONF_3P_BIND_KEY = "jackery_3p_bind_key"
 REGION_CODE_LENGTH = 2
 BRIDGE_PORT_MINIMUM = 1
 BRIDGE_PORT_MAXIMUM = 65535
@@ -69,6 +77,25 @@ def _validate_bridge_port(port: int) -> None:
         raise ValueError("port")
 
 
+class BridgeConfigError(ValueError):
+    """A config-flow error with a translation key."""
+
+
+def _check_port_available(port: int) -> bool:
+    """Check the actual wildcard listener address used by bridge setup."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind(("0.0.0.0", port))
+    except OSError:
+        return False
+    return True
+
+
+async def _ensure_3p_listener_available(hass: Any, port: int) -> None:
+    if listener_for(hass, port).runner is None and not await hass.async_add_executor_job(_check_port_available, port):
+        raise BridgeConfigError("listener_unavailable")
+
+
 class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Guide account login, system choice, discovery, and validation."""
 
@@ -86,7 +113,7 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         del user_input
         return self.async_show_menu(
             step_id="user",
-            menu_options={"jackery": "Jackery SolarVault", "shelly_bridge": "Local Shelly Pro 3EM <-> HomeWizard P1 bridge"},
+            menu_options={"jackery": "Jackery SolarVault", "shelly_bridge": "Local Shelly Pro 3EM <-> HomeWizard P1 bridge", "jackery_3p_bridge": "Experimental Jackery Smart Meter 3P discovery mock"},
         )
 
     async def async_step_jackery(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
@@ -141,35 +168,62 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_shelly_bridge(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
         """Validate and create one independent Shelly bridge entry."""
+        return await self._async_step_bridge(PROTOCOL_HOMEWIZARD_P1, user_input)
+
+    async def async_step_jackery_3p_bridge(self, user_input: dict[str, Any] | None = None) -> config_entries.ConfigFlowResult:
+        """Configure a discovery-only 3P mock."""
+        return await self._async_step_bridge(PROTOCOL_JACKERY_3P, user_input)
+
+    async def _async_step_bridge(self, protocol: str, user_input: dict[str, Any] | None) -> config_entries.ConfigFlowResult:  # noqa: PLR0912, PLR0915
         errors: dict[str, str] = {}
         suggested_serial = secrets.token_hex(6).upper()
+        is_3p = protocol == PROTOCOL_JACKERY_3P
         if user_input is not None:
             try:
-                serial = normalize_serial(user_input[CONF_BRIDGE_SERIAL])
-                port = int(user_input[CONF_BRIDGE_PORT])
-                _validate_bridge_port(port)
-                bridge = ShellySolarVaultBridge(
-                    self.hass,
-                    host=user_input[CONF_SHELLY_HOST],
-                    serial=serial,
-                    port=port,
-                    advertise_address=user_input[CONF_ADVERTISE_ADDRESS],
-                    username=user_input[CONF_SHELLY_USERNAME],
-                    password=(user_input.get(CONF_SHELLY_PASSWORD, "") if user_input[CONF_SHELLY_AUTH] else ""),
-                    invert_power=user_input[CONF_INVERT_POWER],
-                )
+                try:
+                    serial = normalize_3p_serial(user_input[CONF_BRIDGE_SERIAL]) if is_3p else normalize_serial(user_input[CONF_BRIDGE_SERIAL])
+                except ValueError as err:
+                    raise BridgeConfigError("invalid_identity") from err
+                try:
+                    bind_key = normalize_bind_key(user_input[CONF_3P_BIND_KEY]) if is_3p else ""
+                except ValueError as err:
+                    raise BridgeConfigError("invalid_bind_key") from err
+                try:
+                    port = int(user_input[CONF_BRIDGE_PORT])
+                    _validate_bridge_port(port)
+                except ValueError as err:
+                    raise BridgeConfigError("invalid_port") from err
+                try:
+                    ipaddress.IPv4Address(user_input[CONF_ADVERTISE_ADDRESS])
+                except ipaddress.AddressValueError as err:
+                    raise BridgeConfigError("invalid_address") from err
+                common = {
+                    "hass": self.hass,
+                    "host": user_input[CONF_SHELLY_HOST],
+                    "serial": serial,
+                    "port": port,
+                    "advertise_address": user_input[CONF_ADVERTISE_ADDRESS],
+                    "username": user_input[CONF_SHELLY_USERNAME],
+                    "password": (user_input.get(CONF_SHELLY_PASSWORD, "") if user_input[CONF_SHELLY_AUTH] else ""),
+                }
+                bridge = (Jackery3PDiscoveryBridge(**common, bind_key=bind_key) if is_3p
+                          else ShellySolarVaultBridge(**common, invert_power=user_input[CONF_INVERT_POWER]))
                 reading = await bridge.async_read_shelly()
-                homewizard_measurement(
-                    reading,
-                    invert_power=user_input[CONF_INVERT_POWER],
-                )
+                if not is_3p:
+                    homewizard_measurement(reading, invert_power=user_input[CONF_INVERT_POWER])
+                if is_3p:
+                    await _ensure_3p_listener_available(self.hass, port)
+            except BridgeConfigError as err:
+                errors["base"] = str(err)
             except BridgeError, ValueError:
                 errors["base"] = "invalid_bridge"
             else:
-                await self.async_set_unique_id(f"bridge:{serial}")
+                await self.async_set_unique_id(f"bridge:{protocol}:{serial}")
                 self._abort_if_unique_id_configured()
                 for entry in self._async_current_entries():
-                    if entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_BRIDGE and entry.data.get(CONF_BRIDGE_PORT) == port:
+                    if (entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_BRIDGE
+                        and entry.data.get(CONF_BRIDGE_PORT) == port
+                        and entry.data.get(CONF_BRIDGE_PROTOCOL, PROTOCOL_HOMEWIZARD_P1) == protocol):
                         errors["base"] = "port_in_use"
                         break
                 if not errors:
@@ -179,30 +233,32 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                             CONF_ENTRY_TYPE: ENTRY_TYPE_BRIDGE,
                             CONF_BRIDGE_SERIAL: serial,
                             CONF_BRIDGE_PORT: port,
+                            CONF_BRIDGE_PROTOCOL: protocol,
                         }
                     )
-                    return self.async_create_entry(title=f"Shelly Pro 3EM <-> HomeWizard P1 bridge {serial[-6:]}", data=data)
+                    if is_3p:
+                        data[CONF_3P_BIND_KEY] = bind_key
+                    label = "Jackery Smart Meter 3P discovery mock" if is_3p else "Shelly Pro 3EM <-> HomeWizard P1 bridge"
+                    return self.async_create_entry(title=f"{label} {serial[-6:]}", data=data)
 
-        return self.async_show_form(
-            step_id="shelly_bridge",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_SHELLY_HOST): selector.TextSelector(),
-                    vol.Required(CONF_BRIDGE_SERIAL, default=suggested_serial): selector.TextSelector(),
-                    vol.Required(CONF_BRIDGE_PORT, default=HOMEWIZARD_API_PORT): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=1,
-                            max=BRIDGE_PORT_MAXIMUM,
-                            mode=selector.NumberSelectorMode.BOX,
-                        )
-                    ),
-                    vol.Required(CONF_ADVERTISE_ADDRESS): selector.TextSelector(),
-                    vol.Required(CONF_SHELLY_AUTH, default=False): selector.BooleanSelector(),
-                    vol.Required(CONF_SHELLY_USERNAME, default="admin"): selector.TextSelector(),
-                    vol.Optional(CONF_SHELLY_PASSWORD): selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)),
-                    vol.Required(CONF_INVERT_POWER, default=False): selector.BooleanSelector(),
-                }
+        fields: dict = {
+            vol.Required(CONF_SHELLY_HOST): selector.TextSelector(),
+            vol.Required(CONF_BRIDGE_SERIAL, default=suggested_serial): selector.TextSelector(),
+            vol.Required(CONF_BRIDGE_PORT, default=HOMEWIZARD_API_PORT): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=1, max=BRIDGE_PORT_MAXIMUM, mode=selector.NumberSelectorMode.BOX)
             ),
+            vol.Required(CONF_ADVERTISE_ADDRESS): selector.TextSelector(),
+            vol.Required(CONF_SHELLY_AUTH, default=False): selector.BooleanSelector(),
+            vol.Required(CONF_SHELLY_USERNAME, default="admin"): selector.TextSelector(),
+            vol.Optional(CONF_SHELLY_PASSWORD): selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)),
+        }
+        if is_3p:
+            fields[vol.Required(CONF_3P_BIND_KEY, default=secrets.token_hex(8).upper())] = selector.TextSelector()
+        else:
+            fields[vol.Required(CONF_INVERT_POWER, default=False)] = selector.BooleanSelector()
+        return self.async_show_form(
+            step_id="jackery_3p_bridge" if is_3p else "shelly_bridge",
+            data_schema=vol.Schema(fields),
             errors=errors,
             description_placeholders={"local_url": "http://shellypro3em.local"},
         )

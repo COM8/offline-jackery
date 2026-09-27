@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 
     from .bridge import ShellySolarVaultBridge
     from .coordinator import OfflineJackeryDataUpdateCoordinator
+    from .jackery_3p import Jackery3PDiscoveryBridge
 
 type OfflineJackeryConfigEntry = ConfigEntry[OfflineJackeryData]
 
@@ -25,4 +26,4 @@ class OfflineJackeryData:
 class ShellyBridgeData:
     """Runtime resources owned by a bridge config entry."""
 
-    bridge: ShellySolarVaultBridge
+    bridge: ShellySolarVaultBridge | Jackery3PDiscoveryBridge

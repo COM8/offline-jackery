@@ -79,6 +79,12 @@ You can add a Shelly Pro 3EM <-> HomeWizard P1 Meter bridge from the same integr
 
 Each entry polls only the Shelly's local Gen2 RPC API, serves HomeWizard API v1 over HTTP, and advertises `_hwenergy._tcp.local.` with the complete HomeWizard TXT metadata. No Shelly or Jackery cloud is involved after initial setup. If the Shelly uses authentication, its password is stored in Home Assistant's config-entry storage. Keep Home Assistant, the Shelly, and SolarVault on the same trusted LAN/VLAN; this emulated HomeWizard endpoint is intentionally unauthenticated.
 
+### Experimental Jackery Smart Meter 3P discovery mock
+
+The separate **Jackery Smart Meter 3P discovery mock** choice advertises a provisional `_jackery_power._tcp.local.` identity backed by a Shelly Pro 3EM. Automated tests cover the advertisement and its withdrawal; two-host LAN resolution remains untested. App recognition, SolarVault binding, and live 3P readings remain unverified. The reserved `/api/measurement` path returns HTTP 503 while its response format awaits a sanitized capture from a real 3P.
+
+To try LAN discovery, enter the Shelly's local address, the Home Assistant host's reachable LAN IPv4 address, a virtual serial, a hexadecimal bind key, and port 80. The bind key is advertised on the LAN; generate a new value and never reuse an account or physical device secret. Browse `_jackery_power._tcp.local.` from another host and check service resolution separately from whether the Jackery app lists the mock. The app may require the serial to pass its `device/accessories/exists` cloud lookup. Home Assistant diagnostics report **discovery only** even when Shelly readings are fresh. The 3P entry stays out of the P1 smart-meter source selector and P1 Bluetooth bind service.
+
 ## Operation
 
 Home Assistant refreshes the device every five seconds while it is reachable.

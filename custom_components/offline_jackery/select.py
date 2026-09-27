@@ -8,9 +8,11 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .config_flow import (
+    CONF_BRIDGE_PROTOCOL,
     CONF_BRIDGE_SERIAL,
     CONF_ENTRY_TYPE,
     ENTRY_TYPE_BRIDGE,
+    PROTOCOL_HOMEWIZARD_P1,
 )
 from .const import CONF_SELECTED_BRIDGE_SERIAL, DOMAIN
 from .coordinator import OfflineJackeryDataUpdateCoordinator
@@ -48,7 +50,9 @@ class OfflineJackeryMeterSourceSelect(OfflineJackeryEntity, SelectEntity):
         """Return display label to serial mappings for loaded bridges."""
         bridges: dict[str, str] = {}
         for entry in self._hass.config_entries.async_entries(DOMAIN):
-            if entry.data.get(CONF_ENTRY_TYPE) != ENTRY_TYPE_BRIDGE or entry.state is not ConfigEntryState.LOADED:
+            if (entry.data.get(CONF_ENTRY_TYPE) != ENTRY_TYPE_BRIDGE
+                or entry.data.get(CONF_BRIDGE_PROTOCOL, PROTOCOL_HOMEWIZARD_P1) != PROTOCOL_HOMEWIZARD_P1
+                or entry.state is not ConfigEntryState.LOADED):
                 continue
             serial = entry.data[CONF_BRIDGE_SERIAL]
             label = f"{entry.title} · {serial[-6:]}"

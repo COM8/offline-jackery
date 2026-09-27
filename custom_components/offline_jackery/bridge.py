@@ -6,28 +6,23 @@ import asyncio
 import ipaddress
 import json
 import time
-from dataclasses import dataclass
 from typing import Any
-from urllib.parse import urlsplit, urlunsplit
 
-from aiohttp import ClientError, ClientSession, ClientTimeout, DigestAuthMiddleware, web
+from aiohttp import web
 from homeassistant.components import zeroconf
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from zeroconf import ServiceInfo
 
+from .bridge_listener import listener_for
 from .const import LOGGER
+from .shelly_reader import BridgeError, ShellyReader, ShellySnapshot, required_number, shelly_rpc_url
+
+__all__ = ["BridgeError", "ShellySolarVaultBridge", "homewizard_measurement", "shelly_rpc_url"]
 
 SERVICE_TYPE = "_hwenergy._tcp.local."
 HOMEWIZARD_API_PORT = 80
 POLL_SECONDS = 1.0
-STALE_SECONDS = 5.0
 SERIAL_LENGTH = 12
-SHELLY_RPC_METHODS = {"EM.GetStatus", "EMData.GetStatus"}
-
-
-class BridgeError(RuntimeError):
-    """The Shelly response or bridge configuration is unusable."""
 
 
 def normalize_serial(value: str) -> str:
@@ -38,28 +33,6 @@ def normalize_serial(value: str) -> str:
     return serial
 
 
-def shelly_rpc_url(host: str, *, method: str = "EM.GetStatus") -> str:
-    """Build a safe Gen2 RPC URL from a host or base URL."""
-    if method not in SHELLY_RPC_METHODS:
-        raise ValueError("Unsupported Shelly RPC method")
-    raw = host.strip()
-    if "://" not in raw:
-        raw = f"http://{raw}"
-    parsed = urlsplit(raw)
-    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
-        raise ValueError("Enter a valid Shelly hostname, IP address, or HTTP URL")
-    # A user-supplied path must not accidentally turn into /foo/rpc/....
-    return urlunsplit((parsed.scheme, parsed.netloc, f"/rpc/{method}", "id=0", ""))
-
-
-def _number(source: dict[str, Any], key: str) -> float:
-    value = source.get(key)
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        error_message = f"Shelly response is missing numeric field {key!r}"
-        raise BridgeError(error_message)
-    return float(value)
-
-
 def homewizard_measurement(shelly: dict[str, Any], *, invert_power: bool = False) -> dict[str, Any]:
     """Map one EM.GetStatus result to HomeWizard local API v1."""
     sign = -1.0 if invert_power else 1.0
@@ -68,18 +41,18 @@ def homewizard_measurement(shelly: dict[str, Any], *, invert_power: bool = False
         "wifi_strength": 100,
         "smr_version": 50,
         "meter_model": "Shelly Pro 3EM",
-        "total_power_import_kwh": round(_number(shelly, "total_act") / 1000, 6),
-        "total_power_import_t1_kwh": round(_number(shelly, "total_act") / 1000, 6),
+        "total_power_import_kwh": round(required_number(shelly, "total_act") / 1000, 6),
+        "total_power_import_t1_kwh": round(required_number(shelly, "total_act") / 1000, 6),
         "total_power_import_t2_kwh": 0,
-        "total_power_export_kwh": round(_number(shelly, "total_act_ret") / 1000, 6),
-        "total_power_export_t1_kwh": round(_number(shelly, "total_act_ret") / 1000, 6),
+        "total_power_export_kwh": round(required_number(shelly, "total_act_ret") / 1000, 6),
+        "total_power_export_t1_kwh": round(required_number(shelly, "total_act_ret") / 1000, 6),
         "total_power_export_t2_kwh": 0,
-        "active_power_w": round(_number(shelly, "total_act_power") * sign, 3),
+        "active_power_w": round(required_number(shelly, "total_act_power") * sign, 3),
     }
     for index, phase in enumerate(("a", "b", "c"), 1):
-        result[f"active_power_l{index}_w"] = round(_number(shelly, f"{phase}_act_power") * sign, 3)
-        result[f"active_voltage_l{index}_v"] = round(_number(shelly, f"{phase}_voltage"), 3)
-        result[f"active_current_l{index}_a"] = round(_number(shelly, f"{phase}_current"), 3)
+        result[f"active_power_l{index}_w"] = round(required_number(shelly, f"{phase}_act_power") * sign, 3)
+        result[f"active_voltage_l{index}_v"] = round(required_number(shelly, f"{phase}_voltage"), 3)
+        result[f"active_current_l{index}_a"] = round(required_number(shelly, f"{phase}_current"), 3)
     return result
 
 
@@ -119,13 +92,6 @@ def homewizard_service_info(*, serial: str, address: str, port: int) -> ServiceI
     )
 
 
-@dataclass(slots=True)
-class BridgeSnapshot:
-    measurement: dict[str, Any] | None = None
-    updated: float = 0.0
-    error: str = "Waiting for the first Shelly reading"
-
-
 class ShellySolarVaultBridge:
     """Own one poller, HTTP listener, and mDNS advertisement."""
 
@@ -142,64 +108,38 @@ class ShellySolarVaultBridge:
         invert_power: bool = False,
     ) -> None:
         self.hass = hass
-        self.url = shelly_rpc_url(host)
-        self.energy_url = shelly_rpc_url(host, method="EMData.GetStatus")
+        self.reader = ShellyReader(hass, host, username, password)
         self.serial = normalize_serial(serial)
         self.port = port
         self.address = str(ipaddress.IPv4Address(advertise_address))
         self.username = username
         self.password = password
         self.invert_power = invert_power
-        self.snapshot = BridgeSnapshot()
+        self.snapshot = ShellySnapshot()
         self._task: asyncio.Task[None] | None = None
-        self._runner: web.AppRunner | None = None
+        self._listener = listener_for(hass, port)
+        self._route_owner = f"p1:{self.serial}"
+        self._routes_claimed = False
         self._service: ServiceInfo | None = None
-        self._session: ClientSession | None = None
 
     async def async_read_shelly(self) -> dict[str, Any]:
         """Read and validate the local Shelly endpoint."""
-        temporary_session: ClientSession | None = None
-        if self._session is not None:
-            session = self._session
-        elif self.password:
-            temporary_session = ClientSession(middlewares=(DigestAuthMiddleware(self.username, self.password),))
-            session = temporary_session
-        else:
-            session = async_get_clientsession(self.hass)
-        value: dict[str, Any] = {}
-        try:
-            for url in (self.url, self.energy_url):
-                async with session.get(
-                    url,
-                    timeout=ClientTimeout(total=2),
-                ) as response:
-                    response.raise_for_status()
-                    payload = await response.json(content_type=None)
-                if not isinstance(payload, dict):
-                    raise BridgeError("Shelly returned a non-object JSON value")
-                value.update(payload)
-        except (TimeoutError, ClientError, ValueError) as err:
-            error_message = f"Shelly request failed: {err}"
-            raise BridgeError(error_message) from err
-        finally:
-            if temporary_session is not None:
-                await temporary_session.close()
-        return value
+        return await self.reader.read()
 
     async def async_start(self) -> None:
         """Start serving before publishing the endpoint."""
-        if self.password:
-            self._session = ClientSession(middlewares=(DigestAuthMiddleware(self.username, self.password),))
-        app = web.Application()
-        app.router.add_get("/api", self._api)
-        app.router.add_get("/api/", self._api)
-        app.router.add_get("/api/v1/data", self._data)
-        app.router.add_get("/api/v1/data/", self._data)
-        app.router.add_get("/healthz", self._health)
-        self._runner = web.AppRunner(app, access_log=None)
+        self.reader.start()
         try:
-            await self._runner.setup()
-            await web.TCPSite(self._runner, "0.0.0.0", self.port).start()
+            routes = {
+                ("GET", "/api"): self._api,
+                ("GET", "/api/"): self._api,
+                ("GET", "/api/v1/data"): self._data,
+                ("GET", "/api/v1/data/"): self._data,
+                ("GET", "/healthz"): self._health,
+            }
+            routes.update({("HEAD", path): handler for (_, path), handler in list(routes.items())})
+            await self._listener.claim(self._route_owner, routes)
+            self._routes_claimed = True
         except Exception:
             await self.async_stop()
             raise
@@ -228,34 +168,25 @@ class ShellySolarVaultBridge:
             self._task.cancel()
             await asyncio.gather(self._task, return_exceptions=True)
             self._task = None
-        if self._runner is not None:
-            await self._runner.cleanup()
-            self._runner = None
-        if self._session is not None:
-            await self._session.close()
-            self._session = None
+        if self._routes_claimed:
+            await self._listener.release(self._route_owner)
+            self._routes_claimed = False
+        await self.reader.close()
 
     async def _poll(self) -> None:
         while True:
             started = time.monotonic()
             try:
                 value = await self.async_read_shelly()
-                self.snapshot.measurement = homewizard_measurement(value, invert_power=self.invert_power)
-                self.snapshot.updated = time.monotonic()
-                self.snapshot.error = ""
+                self.snapshot.record(value)
             except BridgeError as err:
                 self.snapshot.error = str(err)
                 LOGGER.warning("Shelly bridge %s: %s", self.serial, err)
             await asyncio.sleep(max(0.0, POLL_SECONDS - (time.monotonic() - started)))
 
     def _current(self) -> tuple[dict[str, Any] | None, str]:
-        age = time.monotonic() - self.snapshot.updated
-        if self.snapshot.measurement is None:
-            return None, self.snapshot.error
-        if age > STALE_SECONDS:
-            detail = self.snapshot.error or "no response"
-            return None, f"Meter data is stale ({age:.1f}s): {detail}"
-        return dict(self.snapshot.measurement), self.snapshot.error
+        value, error = self.snapshot.current()
+        return (homewizard_measurement(value, invert_power=self.invert_power) if value is not None else None), error
 
     async def _api(self, _request: web.Request) -> web.Response:
         return homewizard_json_response(
