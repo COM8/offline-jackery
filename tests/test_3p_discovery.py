@@ -9,6 +9,7 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from aiohttp import ClientError, web
 from homeassistant.config_entries import ConfigEntryState
+from zeroconf._services.info import instance_name_from_service_info
 
 from custom_components.offline_jackery import async_setup_entry
 from custom_components.offline_jackery.bridge import homewizard_measurement
@@ -83,6 +84,7 @@ def test_3p_dns_sd_shape_and_validation() -> None:
     assert service.parsed_addresses() == ["192.0.2.10"]
     assert service.port == 80
     assert service.properties == {}
+    assert instance_name_from_service_info(service, strict=False) == instance
     with pytest.raises(ValueError, match="serial"):
         normalize_3p_serial("invalid-serial")
     with pytest.raises(ValueError, match="bind key"):
@@ -158,7 +160,8 @@ def test_3p_advertisement_registers_and_withdraws(monkeypatch: MonkeyPatch) -> N
     events: list[str] = []
 
     class FakeZeroconf:
-        async def async_register_service(self, _service: object) -> None:
+        async def async_register_service(self, _service: object, *, strict: bool = True) -> None:
+            assert strict is False
             events.append("register")
 
         async def async_unregister_service(self, _service: object) -> None:

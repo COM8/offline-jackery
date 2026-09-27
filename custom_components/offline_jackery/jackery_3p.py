@@ -90,7 +90,10 @@ class Jackery3PDiscoveryBridge:
                 serial=self.serial, bind_key=self.bind_key, address=self.address, port=self.port
             )
             instance = await zeroconf.async_get_async_instance(self.hass)
-            await instance.async_register_service(service)
+            # Jackery's published service name contains an underscore after
+            # the leading one. Zeroconf accepts that vendor name only when
+            # strict DNS-SD service-name validation is disabled.
+            await instance.async_register_service(service, strict=False)
             self._service = service
         except Exception:
             await self.async_stop()
