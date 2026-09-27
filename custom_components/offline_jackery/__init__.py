@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import secrets
+
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import Platform
@@ -34,13 +36,14 @@ from .config_flow import (
     CONF_SHELLY_PASSWORD,
     CONF_SHELLY_USERNAME,
     ENTRY_TYPE_BRIDGE,
+    ENTRY_VERSION,
     PROTOCOL_HOMEWIZARD_P1,
     PROTOCOL_JACKERY_3P,
 )
-from .const import DOMAIN
+from .const import DOMAIN, LOGGER
 from .coordinator import OfflineJackeryDataUpdateCoordinator
 from .data import OfflineJackeryConfigEntry, OfflineJackeryData, ShellyBridgeData
-from .jackery_3p import Jackery3PDiscoveryBridge
+from .jackery_3p import Jackery3PDiscoveryBridge, normalize_bind_key
 
 PLATFORMS = [
     Platform.SENSOR,
@@ -91,14 +94,20 @@ async def async_setup(hass: HomeAssistant, _config: dict) -> bool:
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: OfflineJackeryConfigEntry) -> bool:
-    """Restore the standard HomeWizard API port for existing bridge entries."""
-    if entry.version != 1:
+    """Preserve P1 settings and replace unparseable provisional 3P keys."""
+    if entry.version >= ENTRY_VERSION:
         return True
 
     data = dict(entry.data)
-    if data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_BRIDGE and data.get(CONF_BRIDGE_PORT) == LEGACY_BRIDGE_PORT:
+    if entry.version == 1 and data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_BRIDGE and data.get(CONF_BRIDGE_PORT) == LEGACY_BRIDGE_PORT:
         data[CONF_BRIDGE_PORT] = HOMEWIZARD_API_PORT
-    hass.config_entries.async_update_entry(entry, data=data, version=2)
+    if data.get(CONF_BRIDGE_PROTOCOL) == PROTOCOL_JACKERY_3P:
+        try:
+            data[CONF_3P_BIND_KEY] = normalize_bind_key(data[CONF_3P_BIND_KEY])
+        except ValueError:
+            data[CONF_3P_BIND_KEY] = f"{secrets.randbelow(0x80000000):08X}"
+            LOGGER.warning("Regenerated a 3P discovery key that the Jackery app cannot parse")
+    hass.config_entries.async_update_entry(entry, data=data, version=ENTRY_VERSION)
     return True
 
 

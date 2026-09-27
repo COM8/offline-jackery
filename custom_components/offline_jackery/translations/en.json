@@ -71,7 +71,7 @@
         "data_description": {
           "shelly_host": "The Shelly's local address, for example 192.168.1.50 or {local_url}.",
           "bridge_serial": "A virtual serial used in the experimental DNS-SD instance name.",
-          "jackery_3p_bind_key": "An even number of hexadecimal digits. This provisional value is advertised, so do not use an account or device secret.",
+          "jackery_3p_bind_key": "A hexadecimal number from 00000000 to 7FFFFFFF. The app parses it as a signed 32-bit integer. This provisional value is advertised; do not use an account or device secret.",
           "bridge_port": "The local listener port; port 80 is the current research target.",
           "advertise_address": "The LAN IPv4 address of the Home Assistant machine.",
           "shelly_authentication": "Enable only if local RPC authentication is configured on the Shelly.",
@@ -132,7 +132,7 @@
       "key_failed": "Could not obtain a valid Bluetooth key for this device.",
       "invalid_bridge": "Could not validate the bridge settings or read all required Shelly Pro 3EM fields.",
       "invalid_identity": "Enter a valid virtual meter serial.",
-      "invalid_bind_key": "Enter an even-length hexadecimal bind key of 8 to 24 digits.",
+      "invalid_bind_key": "Enter a hexadecimal bind key no greater than 7FFFFFFF.",
       "invalid_address": "Enter the Home Assistant host's LAN IPv4 address.",
       "invalid_port": "Enter a local TCP port from 1 to 65535.",
       "listener_unavailable": "The HTTP listener could not be allocated on this host and port.",

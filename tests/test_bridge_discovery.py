@@ -45,7 +45,7 @@ def test_migration_moves_old_default_bridge_to_homewizard_port() -> None:
     assert updates == [
         {
             "data": {"entry_type": "shelly_bridge", "bridge_port": 80},
-            "version": 2,
+            "version": 3,
         }
     ]
 

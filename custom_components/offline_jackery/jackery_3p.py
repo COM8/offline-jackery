@@ -18,6 +18,7 @@ from .shelly_reader import BridgeError, ShellyReader, ShellySnapshot
 
 SERVICE_TYPE_3P = "_jackery_power._tcp.local."
 PREFIX_3P = "jackery3p"  # Provisional until compared with a physical meter.
+MAX_APP_BIND_KEY = 0x7FFFFFFF
 
 
 def normalize_3p_serial(value: str) -> str:
@@ -29,9 +30,9 @@ def normalize_3p_serial(value: str) -> str:
 
 def normalize_bind_key(value: str) -> str:
     key = value.strip().upper()
-    if not re.fullmatch(r"[0-9A-F]{8,24}", key) or len(key) % 2:
-        raise ValueError("3P bind key must be an even-length hexadecimal value of 8-24 digits")
-    return key
+    if not re.fullmatch(r"[0-9A-F]{1,24}", key) or int(key, 16) > MAX_APP_BIND_KEY:
+        raise ValueError("3P bind key must fit in a signed 32-bit hexadecimal integer")
+    return f"{int(key, 16):08X}"
 
 
 def jackery_3p_service_info(*, serial: str, bind_key: str, address: str, port: int) -> ServiceInfo:

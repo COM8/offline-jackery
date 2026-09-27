@@ -57,6 +57,7 @@ CONF_BRIDGE_PROTOCOL = "bridge_protocol"
 PROTOCOL_HOMEWIZARD_P1 = "homewizard_p1"
 PROTOCOL_JACKERY_3P = "jackery_3p"
 CONF_3P_BIND_KEY = "jackery_3p_bind_key"
+ENTRY_VERSION = 3
 REGION_CODE_LENGTH = 2
 BRIDGE_PORT_MINIMUM = 1
 BRIDGE_PORT_MAXIMUM = 65535
@@ -99,7 +100,7 @@ async def _ensure_3p_listener_available(hass: Any, port: int) -> None:
 class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Guide account login, system choice, discovery, and validation."""
 
-    VERSION = 2
+    VERSION = ENTRY_VERSION
 
     def __init__(self) -> None:
         self._cloud: JackeryCloudClient | None = None
@@ -253,7 +254,7 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Optional(CONF_SHELLY_PASSWORD): selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)),
         }
         if is_3p:
-            fields[vol.Required(CONF_3P_BIND_KEY, default=secrets.token_hex(8).upper())] = selector.TextSelector()
+            fields[vol.Required(CONF_3P_BIND_KEY, default=f"{secrets.randbelow(0x80000000):08X}")] = selector.TextSelector()
         else:
             fields[vol.Required(CONF_INVERT_POWER, default=False)] = selector.BooleanSelector()
         return self.async_show_form(

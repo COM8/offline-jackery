@@ -11,7 +11,7 @@ from aiohttp import ClientError, web
 from homeassistant.config_entries import ConfigEntryState
 from zeroconf._services.info import instance_name_from_service_info
 
-from custom_components.offline_jackery import async_setup_entry
+from custom_components.offline_jackery import async_migrate_entry, async_setup_entry
 from custom_components.offline_jackery.bridge import homewizard_measurement
 from custom_components.offline_jackery.bridge_listener import BridgeListener
 from custom_components.offline_jackery.config_flow import (
@@ -89,6 +89,12 @@ def test_3p_dns_sd_shape_and_validation() -> None:
         normalize_3p_serial("invalid-serial")
     with pytest.raises(ValueError, match="bind key"):
         normalize_bind_key("not-hex")
+    with pytest.raises(ValueError, match="signed 32-bit"):
+        normalize_bind_key("89ABCDEF01234567")
+    with pytest.raises(ValueError, match="signed 32-bit"):
+        normalize_bind_key("80000000")
+    assert normalize_bind_key("7fffffff") == "7FFFFFFF"
+    assert normalize_bind_key("0000000000000001") == "00000001"
 
 
 def test_listener_owns_routes_independently(monkeypatch: MonkeyPatch) -> None:
@@ -271,6 +277,32 @@ def test_version_2_p1_entry_defaults_to_p1_protocol(monkeypatch: MonkeyPatch) ->
     assert asyncio.run(async_setup_entry(SimpleNamespace(), entry)) is True
     assert len(created) == 1
     assert created[0]["serial"] == "AABBCCDDEEFF"
+
+
+def test_old_3p_entry_migrates_unparseable_key(monkeypatch: MonkeyPatch) -> None:
+    updates: list[dict] = []
+    monkeypatch.setattr("custom_components.offline_jackery.secrets.randbelow", lambda _limit: 0x12345678)
+    hass = SimpleNamespace(config_entries=SimpleNamespace(async_update_entry=lambda _entry, **changes: updates.append(changes)))
+    entry = SimpleNamespace(version=2, data={
+        CONF_ENTRY_TYPE: ENTRY_TYPE_BRIDGE,
+        "bridge_protocol": "jackery_3p",
+        CONF_3P_BIND_KEY: "89ABCDEF01234567",
+    })
+    assert asyncio.run(async_migrate_entry(hass, entry))
+    assert updates == [{"data": {
+        CONF_ENTRY_TYPE: ENTRY_TYPE_BRIDGE,
+        "bridge_protocol": "jackery_3p",
+        CONF_3P_BIND_KEY: "12345678",
+    }, "version": 3}]
+
+
+def test_version_2_p1_migration_preserves_data() -> None:
+    updates: list[dict] = []
+    hass = SimpleNamespace(config_entries=SimpleNamespace(async_update_entry=lambda _entry, **changes: updates.append(changes)))
+    data = {CONF_ENTRY_TYPE: ENTRY_TYPE_BRIDGE, CONF_BRIDGE_SERIAL: "AABBCCDDEEFF", CONF_BRIDGE_PORT: 80}
+    entry = SimpleNamespace(version=2, data=data)
+    assert asyncio.run(async_migrate_entry(hass, entry))
+    assert updates == [{"data": data, "version": 3}]
 
 
 def test_shared_reader_uses_digest_auth_and_validates_both_rpc_responses(monkeypatch: MonkeyPatch) -> None:
