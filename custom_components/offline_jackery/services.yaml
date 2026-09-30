@@ -15,3 +15,39 @@ bind_shelly_bridge:
       required: true
       selector:
         text:
+show_firmware_download_urls:
+  name: Show firmware download URLs
+  description: Log in to Jackery once and return available SolarVault firmware module URLs without starting an update.
+  fields:
+    config_entry_id:
+      name: Jackery config entry
+      description: The config entry ID of the target SolarVault.
+      required: true
+      selector:
+        config_entry:
+          integration: offline_jackery
+    login_method:
+      name: Login method
+      required: true
+      selector:
+        select:
+          options:
+            - email
+            - phone
+    account:
+      name: Email or phone number
+      required: true
+      selector:
+        text:
+    password:
+      name: Jackery password
+      description: Used for this request only; avoid putting it in an automation.
+      required: true
+      selector:
+        text:
+          type: password
+    region:
+      name: Region code
+      description: Two-letter region code required for email login (for example, DE).
+      selector:
+        text:

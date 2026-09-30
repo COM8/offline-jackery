@@ -9,6 +9,7 @@ import platform
 import uuid
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlparse
 
 import aiohttp
 from cryptography.hazmat.primitives import padding
@@ -21,6 +22,11 @@ LOGIN_PUBLIC_KEY_B64 = "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCVmzgJy/4XolxPnkfu
 LOGIN_SEED_BYTES = 16
 SOLARVAULT_MODEL_CODE = 3001
 MAX_API_ERROR_MESSAGE_LENGTH = 200
+OTA_MODULES = frozenset({
+    "BMS", "BMSX", "BMSX_BOOT", "DIY", "EBMS", "EBMS_BOOT", "ESP32", "HMI",
+    "INV1", "INV2", "LEDBOARD", "MAIN", "PCSAC", "PCSAC_BOOT", "PCSDC",
+    "PCSDC_BOOT", "PV",
+})
 
 
 class JackeryApiError(RuntimeError):
@@ -55,6 +61,22 @@ class JackerySystem:
     model_code: int | None
     device_id: str | None
     bluetooth_key: str | None
+
+
+def _ota_urls(data: object) -> dict[str, str]:
+    """Keep only firmware module URLs from an OTA link response."""
+    if not isinstance(data, dict):
+        raise JackeryApiError("Jackery returned an invalid OTA link response")
+    result: dict[str, str] = {}
+    for module in OTA_MODULES:
+        url = data.get(module)
+        if not isinstance(url, str) or not url:
+            continue
+        parsed = urlparse(url)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise JackeryApiError("Jackery returned an invalid firmware URL")
+        result[module] = url
+    return dict(sorted(result.items()))
 
 
 def build_login_form(details: LoginDetails, *, random_bytes: bytes | None = None) -> dict[str, str]:
@@ -235,3 +257,31 @@ class JackeryCloudClient:
         if system.bluetooth_key:
             return system.bluetooth_key
         raise JackeryApiError("The selected system did not provide a Bluetooth key")
+
+    async def async_firmware_urls(self, serial_number: str) -> dict[str, Any]:
+        """Get available OTA module links without starting an update."""
+        versions = await self._request("GET", "device/ota/list", {"deviceSnList": serial_number})
+        if not isinstance(versions, list):
+            raise JackeryApiError("Jackery returned an invalid OTA version list")
+        version = next((item for item in versions if isinstance(item, dict) and item.get("deviceSn") == serial_number), None)
+        if version is None:
+            raise JackeryApiError("Jackery returned no OTA entry for this SolarVault")
+        result: dict[str, Any] = {
+            "device_sn": serial_number,
+            "current_version": version.get("currentVersion"),
+            "target_version": version.get("targetVersion"),
+            "update_status": version.get("updateStatus"),
+            "urls": {},
+        }
+        firmware_ids = version.get("targetModuleVersion")
+        target_version_id = version.get("targetVersionId")
+        if not isinstance(firmware_ids, list) or not firmware_ids or not all(isinstance(item, str) and item for item in firmware_ids) or not isinstance(target_version_id, (str, int)) or not str(target_version_id):
+            return result
+        links = await self._request("POST", "device/ota/bluetooth", {
+            "deviceSn": serial_number,
+            "subDeviceSn": "",
+            "targetFirmwareIds": ",".join(firmware_ids),
+            "targetVersionId": str(target_version_id),
+        })
+        result["urls"] = _ota_urls(links)
+        return result

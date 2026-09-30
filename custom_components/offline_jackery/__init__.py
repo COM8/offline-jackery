@@ -7,9 +7,10 @@ import secrets
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 # Home Assistant imports custom integration modules before setup in the import
 # executor. Import the always-used platforms here so forwarding entry setups does
@@ -20,9 +21,11 @@ from . import number as _number  # noqa: F401
 from . import select as _select  # noqa: F401
 from . import sensor as _sensor  # noqa: F401
 from . import switch as _switch  # noqa: F401
+from .api import JackeryApiError, JackeryCloudClient
 from .bridge import HOMEWIZARD_API_PORT, ShellySolarVaultBridge, normalize_serial
 from .config_flow import (
     CONF_3P_BIND_KEY,
+    CONF_ACCOUNT,
     CONF_ADDRESS,
     CONF_ADVERTISE_ADDRESS,
     CONF_BLUETOOTH_KEY,
@@ -31,6 +34,9 @@ from .config_flow import (
     CONF_BRIDGE_SERIAL,
     CONF_ENTRY_TYPE,
     CONF_INVERT_POWER,
+    CONF_LOGIN_METHOD,
+    CONF_REGION,
+    CONF_SERIAL_NUMBER,
     CONF_SHELLY_AUTH,
     CONF_SHELLY_HOST,
     CONF_SHELLY_PASSWORD,
@@ -39,6 +45,7 @@ from .config_flow import (
     ENTRY_VERSION,
     PROTOCOL_HOMEWIZARD_P1,
     PROTOCOL_JACKERY_3P,
+    REGION_CODE_LENGTH,
 )
 from .const import DOMAIN, LOGGER
 from .coordinator import OfflineJackeryDataUpdateCoordinator
@@ -55,6 +62,7 @@ PLATFORMS = [
 ]
 
 SERVICE_BIND_BRIDGE = "bind_shelly_bridge"
+SERVICE_FIRMWARE_URLS = "show_firmware_download_urls"
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 LEGACY_BRIDGE_PORT = 21001
 
@@ -89,6 +97,45 @@ async def async_setup(hass: HomeAssistant, _config: dict) -> bool:
                 vol.Required(CONF_BRIDGE_SERIAL): vol.All(str, normalize_serial),
             }
         ),
+    )
+
+    async def async_show_firmware_urls(call: ServiceCall) -> ServiceResponse:
+        entry = hass.config_entries.async_get_entry(call.data["config_entry_id"])
+        if entry is None or entry.state is not ConfigEntryState.LOADED or not isinstance(entry.runtime_data, OfflineJackeryData):
+            raise ServiceValidationError("config_entry_id must identify a loaded Jackery SolarVault entry")
+        serial_number = entry.data.get(CONF_SERIAL_NUMBER)
+        if not isinstance(serial_number, str) or not serial_number:
+            raise ServiceValidationError("The selected Jackery entry has no serial number")
+        method = call.data[CONF_LOGIN_METHOD]
+        region = call.data.get(CONF_REGION, "").strip().upper()
+        if method == "email" and len(region) != REGION_CODE_LENGTH:
+            raise ServiceValidationError("Email login requires a two-letter region code")
+        client = JackeryCloudClient(async_get_clientsession(hass))
+        try:
+            systems = await client.async_login(
+                account=call.data[CONF_ACCOUNT].strip() if method == "email" else None,
+                phone=call.data[CONF_ACCOUNT].strip() if method == "phone" else None,
+                password=call.data["password"],
+                region_code=region if method == "email" else None,
+            )
+            if not any(system.serial_number == serial_number for system in systems):
+                raise ServiceValidationError("The Jackery account does not contain the selected SolarVault")
+            return await client.async_firmware_urls(serial_number)
+        except JackeryApiError as err:
+            raise ServiceValidationError(str(err)) from err
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_FIRMWARE_URLS,
+        async_show_firmware_urls,
+        schema=vol.Schema({
+            vol.Required("config_entry_id"): str,
+            vol.Required(CONF_LOGIN_METHOD): vol.In(["email", "phone"]),
+            vol.Required(CONF_ACCOUNT): vol.All(str, vol.Length(min=1)),
+            vol.Required("password"): vol.All(str, vol.Length(min=1)),
+            vol.Optional(CONF_REGION): str,
+        }),
+        supports_response=SupportsResponse.ONLY,
     )
     return True
 

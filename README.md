@@ -3,7 +3,7 @@
 Do you also want to be able to run your Jackery battery completely offline without any dependance on any cloud that could go down?
 
 Well, then this Home Assistant integration is just for you!
-Jackery cloud access is used only during initial setup to obtain the device-specific Bluetooth key; normal operation is completely local.
+Jackery cloud access is used during initial setup to obtain the device-specific Bluetooth key and when you explicitly request firmware download URLs; normal device operation is completely local.
 
 > [!WARNING]
 > This integration is experimental. Commands affecting EPS output or grid export
@@ -58,6 +58,12 @@ The configuration wizard asks for the Jackery account login mode, account, passw
 4. The wizard validates the key by connecting and reading initial telemetry.
 
 The Bluetooth key and selected Bluetooth address are stored in Home Assistant's config-entry storage. Protect Home Assistant backups and its `.storage` directory, because Home Assistant does not provide a general encrypted secret store for config-entry values.
+
+### Show firmware download URLs
+
+In **Developer Tools → Actions**, choose **Offline Jackery: Show firmware download URLs**. Select your SolarVault config entry, choose email or phone login, and enter the Jackery account and password. Email login also requires the same two-letter region code used during setup. The action returns the current and target versions, update status, and any available firmware module URLs. It only queries OTA metadata; it does not start an update or download a file.
+
+The credentials and session token are used only for this call and are not stored by the integration. Use the action interactively rather than saving a password in an automation. If the device has no offered update, the `urls` field may be empty.
 
 ## Local Shelly Pro 3EM <-> HomeWizard P1 Meter Bridge
 

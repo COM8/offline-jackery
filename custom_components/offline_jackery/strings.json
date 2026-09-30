@@ -145,6 +145,19 @@
       "device_unavailable": "The selected Bluetooth device is no longer available."
     }
   },
+  "services": {
+    "show_firmware_download_urls": {
+      "name": "Show firmware download URLs",
+      "description": "Look up available SolarVault firmware module URLs without starting an update.",
+      "fields": {
+        "config_entry_id": {"name": "SolarVault"},
+        "login_method": {"name": "Login method"},
+        "account": {"name": "Email or phone number"},
+        "password": {"name": "Jackery password"},
+        "region": {"name": "Region code"}
+      }
+    }
+  },
   "selector": {
     "login_method": {
       "options": {
