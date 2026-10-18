@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Fabian Sauter
+
 """Runtime types for Offline Jackery."""
 
 from __future__ import annotations

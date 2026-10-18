@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Fabian Sauter
+
 """Pure tests for reconnect scheduling and telemetry flattening."""
 
 from custom_components.offline_jackery.coordinator import (

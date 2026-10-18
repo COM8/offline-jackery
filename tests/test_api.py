@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Fabian Sauter
+
 """Tests for Jackery setup API helpers."""
 
 import asyncio

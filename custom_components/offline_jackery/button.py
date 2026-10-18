@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Fabian Sauter
+
 """Manual refresh action for Offline Jackery."""
 
 from homeassistant.components import logbook

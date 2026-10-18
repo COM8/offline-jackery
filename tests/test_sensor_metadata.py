@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Fabian Sauter
+
 """Tests for user-facing SolarVault entity metadata."""
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass

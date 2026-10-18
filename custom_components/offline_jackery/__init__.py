@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Fabian Sauter
+
 """Offline Jackery Home Assistant integration."""
 
 from __future__ import annotations

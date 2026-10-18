@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Fabian Sauter
+
 """Async client for the small Jackery cloud surface needed during setup."""
 
 from __future__ import annotations

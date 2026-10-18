@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Fabian Sauter
+
 """Constants for Offline Jackery."""
 
 import logging

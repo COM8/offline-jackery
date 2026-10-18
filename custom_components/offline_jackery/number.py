@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Fabian Sauter
+
 """Verified writable numeric SolarVault properties."""
 
 from homeassistant.components.number import NumberEntity, NumberMode

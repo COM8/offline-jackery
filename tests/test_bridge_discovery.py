@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Fabian Sauter
+
 """Tests for the emulated HomeWizard P1 discovery contract."""
 
 import asyncio

@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Fabian Sauter
+
 """Local Shelly Pro 3EM to HomeWizard P1 compatibility bridge."""
 
 from __future__ import annotations

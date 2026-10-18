@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Fabian Sauter
+
 """Bluetooth discovery helpers and an async SolarVault connection."""
 
 from __future__ import annotations

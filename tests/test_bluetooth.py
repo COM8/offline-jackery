@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Fabian Sauter
+
 """Tests for Jackery advertisement identification."""
 
 from custom_components.offline_jackery.bluetooth import (

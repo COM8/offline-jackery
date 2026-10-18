@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Fabian Sauter
+
 """Shared Shelly Pro 3EM acquisition and freshness tracking."""
 
 from __future__ import annotations

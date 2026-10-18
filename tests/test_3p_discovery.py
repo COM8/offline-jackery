@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Fabian Sauter
+
 """Discovery-only 3P and shared P1/3P runtime contracts."""
 
 import asyncio

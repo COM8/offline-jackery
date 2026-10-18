@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Fabian Sauter
+
 """Shared Offline Jackery entity."""
 
 from __future__ import annotations

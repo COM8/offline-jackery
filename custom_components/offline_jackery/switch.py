@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Fabian Sauter
+
 """Verified writable Boolean SolarVault properties."""
 
 from __future__ import annotations

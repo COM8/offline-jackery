@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Fabian Sauter
+
 """Tests for user-facing SolarVault entity icons."""
 
 from custom_components.offline_jackery.sensor import icon_for_path

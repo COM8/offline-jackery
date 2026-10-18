@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Fabian Sauter
+
 """Config entry diagnostics without account or Shelly credentials."""
 
 from __future__ import annotations

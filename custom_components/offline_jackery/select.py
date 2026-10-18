@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Fabian Sauter
+
 """Web UI selection of a SolarVault smart-meter source."""
 
 from __future__ import annotations

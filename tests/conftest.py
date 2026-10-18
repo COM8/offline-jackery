@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Fabian Sauter
+
 """Keep pure unit tests independent of Home Assistant runtime integrations."""
 
 from __future__ import annotations

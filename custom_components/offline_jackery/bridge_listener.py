@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Fabian Sauter
+
 """Reference-counted HTTP listener with per-path bridge ownership."""
 
 from __future__ import annotations

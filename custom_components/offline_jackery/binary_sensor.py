@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Fabian Sauter
+
 """Connectivity and read-only Boolean properties for Offline Jackery."""
 
 from typing import Any

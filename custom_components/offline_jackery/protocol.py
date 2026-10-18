@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Fabian Sauter
+
 """Jackery encrypted BLE framing and paging codec."""
 
 from __future__ import annotations

@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Fabian Sauter
+
 """Experimental Jackery 3P discovery identity; metering is unverified."""
 
 from __future__ import annotations

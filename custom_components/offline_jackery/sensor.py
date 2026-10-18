@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Fabian Sauter
+
 """Read-only entities for every scalar property returned over BLE."""
 
 from __future__ import annotations

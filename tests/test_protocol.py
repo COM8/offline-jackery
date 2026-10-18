@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Fabian Sauter
+
 """Tests for encrypted Jackery BLE framing."""
 
 import json

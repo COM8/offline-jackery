@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Fabian Sauter
+
 """Five-second BLE polling and reconnect management."""
 
 from __future__ import annotations
