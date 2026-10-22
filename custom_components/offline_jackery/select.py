@@ -52,9 +52,7 @@ class OfflineJackeryMeterSourceSelect(OfflineJackeryEntity, SelectEntity):
         """Return display label to serial mappings for loaded bridges."""
         bridges: dict[str, str] = {}
         for entry in self._hass.config_entries.async_entries(DOMAIN):
-            if (entry.data.get(CONF_ENTRY_TYPE) != ENTRY_TYPE_BRIDGE
-                or entry.data.get(CONF_BRIDGE_PROTOCOL, PROTOCOL_HOMEWIZARD_P1) != PROTOCOL_HOMEWIZARD_P1
-                or entry.state is not ConfigEntryState.LOADED):
+            if entry.data.get(CONF_ENTRY_TYPE) != ENTRY_TYPE_BRIDGE or entry.data.get(CONF_BRIDGE_PROTOCOL, PROTOCOL_HOMEWIZARD_P1) != PROTOCOL_HOMEWIZARD_P1 or entry.state is not ConfigEntryState.LOADED:
                 continue
             serial = entry.data[CONF_BRIDGE_SERIAL]
             label = f"{entry.title} · {serial[-6:]}"

@@ -75,9 +75,7 @@ def test_missing_shelly_field_is_rejected() -> None:
 
 
 def test_3p_dns_sd_shape_and_validation() -> None:
-    service = jackery_3p_service_info(
-        serial="abc123def456", bind_key="0123ABCD", address="192.0.2.10", port=80
-    )
+    service = jackery_3p_service_info(serial="abc123def456", bind_key="0123ABCD", address="192.0.2.10", port=80)
     instance = service.name.removesuffix("._jackery_power._tcp.local.")
     parts = instance.split("-")
     assert parts[1] == "ABC123DEF456"
@@ -138,8 +136,12 @@ def test_listener_owns_routes_independently(monkeypatch: MonkeyPatch) -> None:
 def test_3p_diagnostics_and_reserved_route_are_discovery_only() -> None:
     hass = SimpleNamespace(data={})
     bridge = Jackery3PDiscoveryBridge(
-        hass, host="192.0.2.20", serial="ABC123DEF456", bind_key="0123ABCD",
-        advertise_address="192.0.2.10", port=80,
+        hass,
+        host="192.0.2.20",
+        serial="ABC123DEF456",
+        bind_key="0123ABCD",
+        advertise_address="192.0.2.10",
+        port=80,
     )
     assert bridge.diagnostics["verification_level"] == "discovery_only"
     assert bridge.diagnostics["app_recognized"] is False
@@ -191,8 +193,12 @@ def test_3p_advertisement_registers_and_withdraws(monkeypatch: MonkeyPatch) -> N
     async def exercise() -> None:
         hass = SimpleNamespace(data={}, async_create_background_task=lambda coro, _name: asyncio.create_task(coro))
         bridge = Jackery3PDiscoveryBridge(
-            hass, host="192.0.2.20", serial="ABC123DEF456", bind_key="0123ABCD",
-            advertise_address="192.0.2.10", port=80,
+            hass,
+            host="192.0.2.20",
+            serial="ABC123DEF456",
+            bind_key="0123ABCD",
+            advertise_address="192.0.2.10",
+            port=80,
         )
         await bridge.async_start()
         assert bridge.diagnostics["advertised"] is True
@@ -239,9 +245,15 @@ def test_3p_flow_coexists_with_p1_and_rejects_bad_identity(monkeypatch: MonkeyPa
     assert bad_key["errors"]["base"] == "invalid_bind_key"
     bad_address = asyncio.run(flow.async_step_jackery_3p_bridge({**values, CONF_ADVERTISE_ADDRESS: "bad-address"}))
     assert bad_address["errors"]["base"] == "invalid_address"
-    flow._async_current_entries = lambda: [SimpleNamespace(data={  # noqa: SLF001
-        CONF_ENTRY_TYPE: ENTRY_TYPE_BRIDGE, CONF_BRIDGE_PORT: 80, "bridge_protocol": "jackery_3p"
-    })]
+    flow._async_current_entries = lambda: [  # noqa: SLF001
+        SimpleNamespace(
+            data={
+                CONF_ENTRY_TYPE: ENTRY_TYPE_BRIDGE,
+                CONF_BRIDGE_PORT: 80,
+                "bridge_protocol": "jackery_3p",
+            }
+        )
+    ]
     duplicate = asyncio.run(flow.async_step_jackery_3p_bridge(values))
     assert duplicate["errors"]["base"] == "port_in_use"
     flow._async_current_entries = list  # noqa: SLF001
@@ -285,17 +297,25 @@ def test_old_3p_entry_migrates_unparseable_key(monkeypatch: MonkeyPatch) -> None
     updates: list[dict] = []
     monkeypatch.setattr("custom_components.offline_jackery.secrets.randbelow", lambda _limit: 0x12345678)
     hass = SimpleNamespace(config_entries=SimpleNamespace(async_update_entry=lambda _entry, **changes: updates.append(changes)))
-    entry = SimpleNamespace(version=2, data={
-        CONF_ENTRY_TYPE: ENTRY_TYPE_BRIDGE,
-        "bridge_protocol": "jackery_3p",
-        CONF_3P_BIND_KEY: "89ABCDEF01234567",
-    })
+    entry = SimpleNamespace(
+        version=2,
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_BRIDGE,
+            "bridge_protocol": "jackery_3p",
+            CONF_3P_BIND_KEY: "89ABCDEF01234567",
+        },
+    )
     assert asyncio.run(async_migrate_entry(hass, entry))
-    assert updates == [{"data": {
-        CONF_ENTRY_TYPE: ENTRY_TYPE_BRIDGE,
-        "bridge_protocol": "jackery_3p",
-        CONF_3P_BIND_KEY: "12345678",
-    }, "version": 3}]
+    assert updates == [
+        {
+            "data": {
+                CONF_ENTRY_TYPE: ENTRY_TYPE_BRIDGE,
+                "bridge_protocol": "jackery_3p",
+                CONF_3P_BIND_KEY: "12345678",
+            },
+            "version": 3,
+        }
+    ]
 
 
 def test_version_2_p1_migration_preserves_data() -> None:

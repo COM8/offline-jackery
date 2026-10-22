@@ -24,11 +24,27 @@ LOGIN_PUBLIC_KEY_B64 = "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCVmzgJy/4XolxPnkfu
 LOGIN_SEED_BYTES = 16
 SOLARVAULT_MODEL_CODE = 3001
 MAX_API_ERROR_MESSAGE_LENGTH = 200
-OTA_MODULES = frozenset({
-    "BMS", "BMSX", "BMSX_BOOT", "DIY", "EBMS", "EBMS_BOOT", "ESP32", "HMI",
-    "INV1", "INV2", "LEDBOARD", "MAIN", "PCSAC", "PCSAC_BOOT", "PCSDC",
-    "PCSDC_BOOT", "PV",
-})
+OTA_MODULES = frozenset(
+    {
+        "BMS",
+        "BMSX",
+        "BMSX_BOOT",
+        "DIY",
+        "EBMS",
+        "EBMS_BOOT",
+        "ESP32",
+        "HMI",
+        "INV1",
+        "INV2",
+        "LEDBOARD",
+        "MAIN",
+        "PCSAC",
+        "PCSAC_BOOT",
+        "PCSDC",
+        "PCSDC_BOOT",
+        "PV",
+    }
+)
 
 
 class JackeryApiError(RuntimeError):
@@ -279,11 +295,15 @@ class JackeryCloudClient:
         target_version_id = version.get("targetVersionId")
         if not isinstance(firmware_ids, list) or not firmware_ids or not all(isinstance(item, str) and item for item in firmware_ids) or not isinstance(target_version_id, (str, int)) or not str(target_version_id):
             return result
-        links = await self._request("POST", "device/ota/bluetooth", {
-            "deviceSn": serial_number,
-            "subDeviceSn": "",
-            "targetFirmwareIds": ",".join(firmware_ids),
-            "targetVersionId": str(target_version_id),
-        })
+        links = await self._request(
+            "POST",
+            "device/ota/bluetooth",
+            {
+                "deviceSn": serial_number,
+                "subDeviceSn": "",
+                "targetFirmwareIds": ",".join(firmware_ids),
+                "targetVersionId": str(target_version_id),
+            },
+        )
         result["urls"] = _ota_urls(links)
         return result

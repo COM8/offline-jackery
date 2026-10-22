@@ -209,8 +209,7 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     "username": user_input[CONF_SHELLY_USERNAME],
                     "password": (user_input.get(CONF_SHELLY_PASSWORD, "") if user_input[CONF_SHELLY_AUTH] else ""),
                 }
-                bridge = (Jackery3PDiscoveryBridge(**common, bind_key=bind_key) if is_3p
-                          else ShellySolarVaultBridge(**common, invert_power=user_input[CONF_INVERT_POWER]))
+                bridge = Jackery3PDiscoveryBridge(**common, bind_key=bind_key) if is_3p else ShellySolarVaultBridge(**common, invert_power=user_input[CONF_INVERT_POWER])
                 reading = await bridge.async_read_shelly()
                 if not is_3p:
                     homewizard_measurement(reading, invert_power=user_input[CONF_INVERT_POWER])
@@ -224,9 +223,7 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 await self.async_set_unique_id(f"bridge:{protocol}:{serial}")
                 self._abort_if_unique_id_configured()
                 for entry in self._async_current_entries():
-                    if (entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_BRIDGE
-                        and entry.data.get(CONF_BRIDGE_PORT) == port
-                        and entry.data.get(CONF_BRIDGE_PROTOCOL, PROTOCOL_HOMEWIZARD_P1) == protocol):
+                    if entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_BRIDGE and entry.data.get(CONF_BRIDGE_PORT) == port and entry.data.get(CONF_BRIDGE_PROTOCOL, PROTOCOL_HOMEWIZARD_P1) == protocol:
                         errors["base"] = "port_in_use"
                         break
                 if not errors:
@@ -247,9 +244,7 @@ class OfflineJackeryFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         fields: dict = {
             vol.Required(CONF_SHELLY_HOST): selector.TextSelector(),
             vol.Required(CONF_BRIDGE_SERIAL, default=suggested_serial): selector.TextSelector(),
-            vol.Required(CONF_BRIDGE_PORT, default=HOMEWIZARD_API_PORT): selector.NumberSelector(
-                selector.NumberSelectorConfig(min=1, max=BRIDGE_PORT_MAXIMUM, mode=selector.NumberSelectorMode.BOX)
-            ),
+            vol.Required(CONF_BRIDGE_PORT, default=HOMEWIZARD_API_PORT): selector.NumberSelector(selector.NumberSelectorConfig(min=1, max=BRIDGE_PORT_MAXIMUM, mode=selector.NumberSelectorMode.BOX)),
             vol.Required(CONF_ADVERTISE_ADDRESS): selector.TextSelector(),
             vol.Required(CONF_SHELLY_AUTH, default=False): selector.BooleanSelector(),
             vol.Required(CONF_SHELLY_USERNAME, default="admin"): selector.TextSelector(),

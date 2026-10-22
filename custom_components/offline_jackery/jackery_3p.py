@@ -89,9 +89,7 @@ class Jackery3PDiscoveryBridge:
             await self._listener.claim(self._route_owner, {("GET", "/api/measurement"): self._measurement})
             self._routes_claimed = True
             self._task = self.hass.async_create_background_task(self._poll(), f"offline_jackery_3p_{self.serial}")
-            service = jackery_3p_service_info(
-                serial=self.serial, bind_key=self.bind_key, address=self.address, port=self.port
-            )
+            service = jackery_3p_service_info(serial=self.serial, bind_key=self.bind_key, address=self.address, port=self.port)
             instance = await zeroconf.async_get_async_instance(self.hass)
             # Jackery's published service name contains an underscore after
             # the leading one. Zeroconf accepts that vendor name only when

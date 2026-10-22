@@ -130,13 +130,15 @@ async def async_setup(hass: HomeAssistant, _config: dict) -> bool:
         DOMAIN,
         SERVICE_FIRMWARE_URLS,
         async_show_firmware_urls,
-        schema=vol.Schema({
-            vol.Required("config_entry_id"): str,
-            vol.Required(CONF_LOGIN_METHOD): vol.In(["email", "phone"]),
-            vol.Required(CONF_ACCOUNT): vol.All(str, vol.Length(min=1)),
-            vol.Required("password"): vol.All(str, vol.Length(min=1)),
-            vol.Optional(CONF_REGION): str,
-        }),
+        schema=vol.Schema(
+            {
+                vol.Required("config_entry_id"): str,
+                vol.Required(CONF_LOGIN_METHOD): vol.In(["email", "phone"]),
+                vol.Required(CONF_ACCOUNT): vol.All(str, vol.Length(min=1)),
+                vol.Required("password"): vol.All(str, vol.Length(min=1)),
+                vol.Optional(CONF_REGION): str,
+            }
+        ),
         supports_response=SupportsResponse.ONLY,
     )
     return True

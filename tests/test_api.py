@@ -35,14 +35,17 @@ def test_firmware_urls_uses_version_ids_without_starting_update(monkeypatch: pyt
     async def request(_self: JackeryCloudClient, method: str, path: str, fields: dict[str, str] | None = None) -> Any:
         requests.append((method, path, fields))
         if path == "device/ota/list":
-            return [{"deviceSn": "OTHER"}, {
-                "deviceSn": "SV123",
-                "currentVersion": "1.0",
-                "targetVersion": "1.1",
-                "targetVersionId": "42",
-                "targetModuleVersion": ["11", "12"],
-                "updateStatus": 0,
-            }]
+            return [
+                {"deviceSn": "OTHER"},
+                {
+                    "deviceSn": "SV123",
+                    "currentVersion": "1.0",
+                    "targetVersion": "1.1",
+                    "targetVersionId": "42",
+                    "targetModuleVersion": ["11", "12"],
+                    "updateStatus": 0,
+                },
+            ]
         return {"MAIN": "https://example.com/main.bin", "BMS": "https://example.com/bms.bin", "deviceSn": "SV123"}
 
     monkeypatch.setattr(JackeryCloudClient, "_request", request)
@@ -57,12 +60,16 @@ def test_firmware_urls_uses_version_ids_without_starting_update(monkeypatch: pyt
     }
     assert requests == [
         ("GET", "device/ota/list", {"deviceSnList": "SV123"}),
-        ("POST", "device/ota/bluetooth", {
-            "deviceSn": "SV123",
-            "subDeviceSn": "",
-            "targetFirmwareIds": "11,12",
-            "targetVersionId": "42",
-        }),
+        (
+            "POST",
+            "device/ota/bluetooth",
+            {
+                "deviceSn": "SV123",
+                "subDeviceSn": "",
+                "targetFirmwareIds": "11,12",
+                "targetVersionId": "42",
+            },
+        ),
     ]
 
 
